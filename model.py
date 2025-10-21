@@ -82,3 +82,56 @@ def save_action_to_excel(action: ActionSpec, file_path: str = "actions.xlsx", sh
 
 	wb.save(file_path)
 
+
+def get_all_actions_from_excel(file_path: str = "actions.xlsx", sheet_name: str = "Actions") -> List[ActionSpec]:
+	"""Read all actions from Excel file and convert them to ActionSpec objects.
+	
+	Returns a list of ActionSpec objects from the Excel file.
+	"""
+	if load_workbook is None:
+		raise RuntimeError("openpyxl is required to read from Excel. Install with: pip install openpyxl")
+	
+	if not os.path.exists(file_path):
+		raise FileNotFoundError(f"Excel file not found: {file_path}")
+	
+	wb = load_workbook(file_path)
+	if sheet_name not in wb.sheetnames:
+		raise ValueError(f"Sheet '{sheet_name}' not found in Excel file")
+	
+	ws = wb[sheet_name]
+	actions = []
+	
+	# Skip header row and process data rows
+	for i, row in enumerate(ws.iter_rows(values_only=True), 1):
+		if i == 1:  # Skip header row
+			continue
+		
+		if not any(row):  # Skip empty rows
+			continue
+		
+		try:
+			# Extract data from row (assuming order: id, url, htmlComponent, operationType, Input)
+			action_id = row[0] if row[0] is not None else None
+			url = row[1] if row[1] is not None else ""
+			html_component = row[2] if row[2] is not None else ""
+			operation_type_str = row[3] if row[3] is not None else ""
+			input_value = row[4] if row[4] is not None else None
+			
+			# Convert operation type string to enum
+			operation_type = OperationType(operation_type_str)
+			
+			# Create ActionSpec object
+			action = ActionSpec(
+				id=action_id,
+				url=url,
+				htmlComponent=html_component,
+				operationType=operation_type,
+				Input=input_value
+			)
+			actions.append(action)
+			
+		except (ValueError, IndexError) as e:
+			print(f"Warning: Skipping invalid row {i}: {e}")
+			continue
+	
+	return actions
