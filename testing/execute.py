@@ -58,6 +58,9 @@ class ActionExecutor:
             # Navigate to URL if specified and not already on that page
             if action.url:
                 current_url = self.page.url
+                print(f"Current URL: {current_url}")
+                print(f"Action URL: {action.url}")
+                print(f"Is same URL: {self._is_same_url(current_url, action.url)}")
                 if not self._is_same_url(current_url, action.url):
                     print(f"Navigating to: {action.url}")
                     self.page.goto(action.url)
@@ -66,7 +69,6 @@ class ActionExecutor:
                     print(f"Already on {action.url}, skipping navigation")
             
             # Get operation name from mapper
-            print(f"Action: {action}")
             operation_name = self.operation_mapper.get_operation_name_by_id(action.operation_id)
             
             # Execute based on operation type
@@ -86,8 +88,8 @@ class ActionExecutor:
         """Check if current URL matches target URL, ignoring protocol and trailing slashes."""
         try:
             # Remove protocol and normalize URLs
-            current_normalized = current_url.replace('https://', '').replace('http://', '').rstrip('/')
-            target_normalized = target_url.replace('https://', '').replace('http://', '').rstrip('/')
+            current_normalized = current_url.replace('https://', '').replace('http://', '').replace('www.', '').rstrip('/')
+            target_normalized = target_url.replace('https://', '').replace('http://', '').replace('www.', '').rstrip('/')
             
             # Check if URLs match
             return current_normalized == target_normalized

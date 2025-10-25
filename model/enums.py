@@ -9,4 +9,4 @@ class OperationTypeEnum(Enum):
     """Enumeration of operation types for UI automation."""
     CLICK = "click"
     SCROLL = "scroll"
-    INPUT_TEXT = "inputText"
+    INPUT_TEXT = "input_text"
