@@ -1,6 +1,10 @@
+# to execute this file, run the following command from the root directory:
+# python -m testing.execute
+
 from playwright.sync_api import sync_playwright, Page, Browser
 import time
-from model import get_all_events_from_sqlite, Event
+from model.database import get_all_events_from_sqlite
+from model.event import Event
 from model.operation_type import OperationTypeMapper
 
 

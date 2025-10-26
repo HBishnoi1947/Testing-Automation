@@ -13,13 +13,13 @@ class Event:
     feature_id: int
     operation_id: int
     step_number: int
+    url: str
+    html_component: str
 
     # Optional fields with defaults after required ones
-    url: Optional[str] = None
-    html_component: Optional[str] = None
     input_text: Optional[str] = None
     # Auto-incrementing primary key; assigned if not provided
-    id: Optional[int] = field(default=None, repr=True)
+    id: Optional[int] = None
 
     def to_row(self) -> List[Any]:
         """Convert the event to a row format for database operations."""

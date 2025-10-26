@@ -32,7 +32,7 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     create_features_table = """
     CREATE TABLE IF NOT EXISTS features (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        feature TEXT NOT NULL UNIQUE
+        feature TEXT NOT NULL
     )
     """
     
@@ -108,34 +108,30 @@ def create_feature(feature_name: str, db_path: str = "database.db") -> int:
     finally:
         conn.close()
 
-
-def get_feature_by_name(feature_name: str, db_path: str = "database.db") -> Optional[Feature]:
-    """Get a feature by name.
+def get_all_features(db_path: str = "database.db") -> List[str]:
+    """Get all features from the database.
     
     Args:
-        feature_name: Name of the feature to find
         db_path: Path to SQLite database file
         
     Returns:
-        Optional[Feature]: Feature object if found, None otherwise
+        List[str]: List of feature names
     """
     conn = connect_to_sqlite_database(db_path)
     
     try:
-        select_sql = "SELECT * FROM features WHERE feature = ?"
-        cursor = conn.execute(select_sql, (feature_name,))
-        row = cursor.fetchone()
+        select_sql = "SELECT feature FROM features"
+        cursor = conn.execute(select_sql)
+        rows = cursor.fetchall()
         
-        if row is None:
-            return None
-        
-        return Feature(id=row['id'], feature=row['feature'])
+        return [row['feature'] for row in rows]
         
     except Exception as e:
-        raise RuntimeError(f"Failed to get feature: {e}")
+        raise RuntimeError(f"Failed to get features: {e}")
     
     finally:
         conn.close()
+
 
 
 def get_operation_type_by_name(operation_name: str, db_path: str = "database.db") -> Optional[OperationType]:
@@ -186,11 +182,7 @@ def create_event(feature_name: str, operation_name: str, step_number: int, url: 
     
     try:
         # Get feature ID
-        feature = get_feature_by_name(feature_name, db_path)
-        if feature is None:
-            feature_id = create_feature(feature_name, db_path)
-        else:
-            feature_id = feature.id
+        feature_id = create_feature(feature_name, db_path)
         
         # Get operation type ID
         operation_type = get_operation_type_by_name(operation_name, db_path)
@@ -209,6 +201,131 @@ def create_event(feature_name: str, operation_name: str, step_number: int, url: 
     except Exception as e:
         conn.rollback()
         raise RuntimeError(f"Failed to create event: {e}")
+    
+    finally:
+        conn.close()
+
+
+def _get_or_create_feature_id(conn: sqlite3.Connection, feature_name: str) -> int:
+    """Get or create a feature and return its ID using existing connection.
+    
+    Args:
+        conn: Existing database connection
+        feature_name: Name of the feature
+        
+    Returns:
+        int: ID of the feature
+    """
+    try:
+        # Insert feature
+        insert_sql = "INSERT INTO features (feature) VALUES (?)"
+        cursor = conn.execute(insert_sql, (feature_name,))
+        feature_id = cursor.lastrowid
+        
+        print(f"Created feature '{feature_name}' with ID {feature_id}")
+        return feature_id
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to get or create feature: {e}")
+
+
+def _get_operation_type_by_name(conn: sqlite3.Connection, operation_name: str) -> Optional[OperationType]:
+    """Get operation type by name using existing connection.
+    
+    Args:
+        conn: Existing database connection
+        operation_name: Name of the operation type
+        
+    Returns:
+        OperationType or None if not found
+    """
+    try:
+        select_sql = "SELECT id, operation, description FROM operation_types WHERE operation = ?"
+        cursor = conn.execute(select_sql, (operation_name,))
+        row = cursor.fetchone()
+        
+        if row:
+            return OperationType(id=row[0], operation=row[1], description=row[2])
+        return None
+        
+    except Exception as e:
+        print(f"Error getting operation type '{operation_name}': {e}")
+        return None
+
+
+def create_events(feature_name: str, events: List[dict], db_path: str = "database.db") -> List[int]:
+    """Create multiple events for a single feature.
+    
+    Args:
+        feature_name: Name of the feature
+        events: List of event dictionaries with keys: operation_name, step_number, url, html_component, input_text
+        db_path: Path to SQLite database file
+        
+    Returns:
+        List[int]: List of created event IDs
+        
+    Example:
+        events = [
+            {
+                "operation_name": "input_text",
+                "step_number": 1,
+                "url": "https://example.com/login",
+                "html_component": "input[id='email']",
+                "input_text": "user@example.com"
+            },
+            {
+                "operation_name": "click",
+                "step_number": 2,
+                "url": "https://example.com/login",
+                "html_component": "button[type='submit']",
+                "input_text": None
+            }
+        ]
+        event_ids = create_events("Login Feature", events)
+    """
+    conn = connect_to_sqlite_database(db_path)
+    created_event_ids = []
+    
+    try:
+        # Get feature ID (create if doesn't exist) - use existing connection
+        feature_id = _get_or_create_feature_id(conn, feature_name)
+        print(f"Using feature ID {feature_id} for feature '{feature_name}'")
+        
+        # Insert all events
+        for event in events:
+            try:
+                # Get operation type ID - use existing connection
+                operation_type = _get_operation_type_by_name(conn, event["operation_name"])
+                if operation_type is None:
+                    print(f"Warning: Operation type '{event['operation_name']}' not found, skipping event")
+                    continue
+                
+                # Insert event
+                insert_sql = "INSERT INTO events (feature_id, url, html_component, operation_id, input_text, step_number) VALUES (?, ?, ?, ?, ?, ?)"
+                cursor = conn.execute(insert_sql, (
+                    feature_id,
+                    event.get("url"),
+                    event.get("html_component"),
+                    operation_type.id,
+                    event.get("input_text"),
+                    event["step_number"]
+                ))
+                event_id = cursor.lastrowid
+                created_event_ids.append(event_id)
+                
+                print(f"Created event with ID {event_id} for operation '{event['operation_name']}' (step {event['step_number']})")
+                
+            except Exception as e:
+                print(f"Error creating event for operation '{event.get('operation_name', 'unknown')}': {e}")
+                continue
+        
+        conn.commit()
+        print(f"Successfully created {len(created_event_ids)} events for feature '{feature_name}'")
+        return created_event_ids
+        
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to create events: {e}")
     
     finally:
         conn.close()
@@ -269,61 +386,55 @@ def get_all_events_with_details(db_path: str = "database.db") -> List[dict]:
     finally:
         conn.close()
 
-
-def create_bishnoi_shaadi_login_test(db_path: str = "database.db") -> None:
-    """Create the Bishnoi Shaadi login test using the new schema.
+def get_events_by_feature_id(feature_id: int, db_path: str = "database.db") -> List[Event]:
+    """Get all events for a specific feature ID from SQLite database.
     
     Args:
+        feature_id: ID of the feature to get events for
         db_path: Path to SQLite database file
+        
+    Returns:
+        List[Event]: List of Event objects for the specified feature
     """
-    try:
-        # Create events for Bishnoi Shaadi login test
-        create_event("Bishnoi Shaadi Login", "input_text", 1, "https://bishnoishaadi.com/login", "input[id='email']", "HARSHBSHNOI@GMAIL.COM", db_path)
-        create_event("Bishnoi Shaadi Login", "input_text", 2, "https://bishnoishaadi.com/login", "input[id='password']", "123456", db_path)
-        create_event("Bishnoi Shaadi Login", "click", 3, "https://bishnoishaadi.com/login", "button[type='submit']", None, db_path)
-        
-        print("Successfully created Bishnoi Shaadi login test events")
-        
-    except Exception as e:
-        print(f"Error creating Bishnoi Shaadi login test: {e}")
-
-
-def save_action_to_sqlite(action: Event, db_path: str = "database.db") -> None:
-    """Save the action to SQLite database.
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"SQLite database not found: {db_path}")
     
-    Args:
-        action: Event object to save
-        db_path: Path to SQLite database file
-    """
     conn = connect_to_sqlite_database(db_path)
     
     try:
-        # Insert action into database
-        insert_sql = """
-        INSERT INTO events (feature_id, url, html_component, operation_id, input_text, step_number)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """
+        # Query events for specific feature_id
+        select_sql = "SELECT * FROM events WHERE feature_id = ? ORDER BY step_number"
+        cursor = conn.execute(select_sql, (feature_id,))
+        rows = cursor.fetchall()
         
-        cursor = conn.execute(insert_sql, (
-            action.feature_id,
-            action.url,
-            action.html_component,
-            action.operation_id,
-            action.input_text,
-            action.step_number
-        ))
+        events = []
         
-        # Get the auto-generated ID
-        action.id = cursor.lastrowid
-        
-        conn.commit()
+        for row in rows:
+            try:
+                # Create Event object
+                action = Event(
+                    id=row['id'],
+                    feature_id=row['feature_id'], 
+                    operation_id=row['operation_id'],
+                    url=row['url'],
+                    html_component=row['html_component'],
+                    input_text=row['input_text'],
+                    step_number=row['step_number']
+                )
+                events.append(action)
+                
+            except (ValueError, KeyError) as e:
+                print(f"Warning: Skipping invalid row with id {row['id']}: {e}")
+                continue
+                
+        return events
         
     except Exception as e:
-        conn.rollback()
-        raise RuntimeError(f"Failed to save action to SQLite database: {e}")
+        raise RuntimeError(f"Failed to get events for feature_id {feature_id}: {e}")
     
     finally:
         conn.close()
+
 
 
 def get_all_events_from_sqlite(db_path: str = "database.db") -> List[Event]:
@@ -375,8 +486,8 @@ def get_all_events_from_sqlite(db_path: str = "database.db") -> List[Event]:
         conn.close()
 
 
-def update_action_in_sqlite(action: Event, db_path: str = "database.db") -> None:
-    """Update an existing action in SQLite database.
+def update_event_in_sqlite(action: Event, db_path: str = "database.db") -> None:
+    """Update an existing event in SQLite database.
     
     Args:
         action: Event object to update (must have valid id)
@@ -418,7 +529,7 @@ def update_action_in_sqlite(action: Event, db_path: str = "database.db") -> None
         conn.close()
 
 
-def delete_action_from_sqlite(action_id: int, db_path: str = "database.db") -> None:
+def delete_event_from_sqlite(action_id: int, db_path: str = "database.db") -> None:
     """Delete an action from SQLite database.
     
     Args:
@@ -446,7 +557,7 @@ def delete_action_from_sqlite(action_id: int, db_path: str = "database.db") -> N
         conn.close()
 
 
-def get_action_by_id(action_id: int, db_path: str = "database.db") -> Optional[Event]:
+def get_event_by_id(action_id: int, db_path: str = "database.db") -> Optional[Event]:
     """Get a specific action by ID from SQLite database.
     
     Args:

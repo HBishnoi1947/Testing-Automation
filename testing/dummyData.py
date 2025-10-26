@@ -1,10 +1,12 @@
-from model import create_bishnoi_shaadi_login_test, get_all_events_with_details
+from model.database import create_event, get_all_events_with_details
 
 
 def push_data_to_sqlite() -> None:
 	"""Push Bishnoi Shaadi login test data to SQLite database using new schema."""
-	# Create Bishnoi Shaadi login test using new schema
-	create_bishnoi_shaadi_login_test()
+	# Create Bishnoi Shaadi login test events directly
+	create_event("Bishnoi Shaadi Login", "input_text", 1, "https://bishnoishaadi.com/login", "input[id='email']", "HARSHBSHNOI@GMAIL.COM")
+	create_event("Bishnoi Shaadi Login", "input_text", 2, "https://bishnoishaadi.com/login", "input[id='password']", "123456")
+	create_event("Bishnoi Shaadi Login", "click", 3, "https://bishnoishaadi.com/login", "button[type='submit']", None)
 	
 	print("Pushed 3 Bishnoi Shaadi login test events to SQLite database")
 	print("Events:")

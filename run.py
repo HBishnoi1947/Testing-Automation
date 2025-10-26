@@ -6,9 +6,10 @@ Opens browser, navigates to URL, extracts DOM, processes with AI, and saves to d
 import os
 import json
 import asyncio
+from datetime import datetime
 from playwright.async_api import async_playwright
 from event_response_from_ai import WebAutomationAgent
-from model.database import create_event
+from model.database import create_events
 
 
 class AutomationRunner:
@@ -24,7 +25,7 @@ class AutomationRunner:
         self.db_path = db_path
         self.ai_agent = WebAutomationAgent(api_key)
         
-    async def run_automation_workflow(self, target_url: str, prompt: str, dom_output_file: str = "extracted_dom.txt"):
+    async def run_automation_workflow(self, target_url: str, prompt: str, dom_output_file: str = None):
         """
         Run the complete automation workflow:
         1. Open browser and navigate to URL
@@ -35,8 +36,17 @@ class AutomationRunner:
         Args:
             target_url: URL to navigate to
             prompt: Hardcoded prompt for AI processing
-            dom_output_file: File to save extracted DOM content
+            dom_output_file: File to save extracted DOM content (defaults to url_datetime.txt)
         """
+        # Generate default filename if not provided
+        if dom_output_file is None:
+            # Extract domain from URL and clean it
+            from urllib.parse import urlparse
+            parsed_url = urlparse(target_url)
+            domain = parsed_url.netloc.replace('www.', '').replace('.', '_')
+            current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+            dom_output_file = f"{domain}_{current_time}.txt"
+        
         print("=" * 80)
         print("🚀 STARTING AUTOMATION WORKFLOW")
         print("=" * 80)
@@ -101,7 +111,7 @@ class AutomationRunner:
     
     def _save_events_to_database(self, ai_result: dict):
         """
-        Save AI-generated events to the database.
+        Save AI-generated events to the database using create_events for efficiency.
         
         Args:
             ai_result: Dictionary containing AI-generated events
@@ -115,24 +125,25 @@ class AutomationRunner:
         
         print(f"Saving {len(events)} events for feature: {feature_name}")
         
-        for event in events:
-            try:
-                
-                # Create event in database
-                event_id = create_event(
-                    feature_name=feature_name,
-                    operation_name=event.get("operation_name"),
-                    step_number=event.get("step_number", 1),
-                    url=event.get("url"),
-                    html_component=event.get("html_component"),
-                    input_text=event.get("input_text"),
-                    db_path=self.db_path
-                )
-                
-                
-            except Exception as e:
-                print(f"  ❌ Failed to save event: {e}")
-                continue
+        try:
+            # Convert AI events to the format expected by create_events
+            formatted_events = []
+            for event in events:
+                formatted_event = {
+                    "operation_name": event.get("operation_name"),
+                    "step_number": event.get("step_number", 1),
+                    "url": event.get("url"),
+                    "html_component": event.get("html_component"),
+                    "input_text": event.get("input_text")
+                }
+                formatted_events.append(formatted_event)
+            
+            # Create all events at once using create_events
+            event_ids = create_events(feature_name, formatted_events, self.db_path)
+            print(f"✅ Successfully created {len(event_ids)} events for feature '{feature_name}'")
+            
+        except Exception as e:
+            print(f"❌ Failed to save events: {e}")
 
 
 async def main():
@@ -143,7 +154,6 @@ async def main():
     API_KEY = "AIzaSyA_jrCpHgsAY-J3pIeKJWPuZ76su3ug2DY"  # Replace with your API key
     TARGET_URL = "https://www.bishnoishaadi.com/login"
     HARDCODED_PROMPT = "Login with email = harshbshnoi@gmail.com and password = 123456"
-    DOM_OUTPUT_FILE = "bishnoishaadi_dom.txt"
     DATABASE_PATH = "database.db"
     
     # Initialize and run automation
@@ -151,14 +161,13 @@ async def main():
     
     success = await runner.run_automation_workflow(
         target_url=TARGET_URL,
-        prompt=HARDCODED_PROMPT,
-        dom_output_file=DOM_OUTPUT_FILE
+        prompt=HARDCODED_PROMPT
     )
     
     if success:
         print("\n🎯 Workflow completed successfully!")
         print(f"Check the database at: {DATABASE_PATH}")
-        print(f"DOM content saved at: {DOM_OUTPUT_FILE}")
+        print("DOM content saved with auto-generated filename")
     else:
         print("\n💥 Workflow failed. Check the error messages above.")
 

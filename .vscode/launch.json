@@ -1,0 +1,52 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Run Automation",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/run.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Execute Events",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/testing/execute.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Dummy Data",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/testing/dummyData.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Debug with Arguments",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": [],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false,
+            "stopOnEntry": false
+        }
+    ]
+}
