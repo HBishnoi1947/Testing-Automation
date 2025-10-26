@@ -1,0 +1,22 @@
+# Modern Desktop UI Requirements
+# These are the additional requirements for the modern desktop UI
+
+# Core GUI framework (included with Python)
+# tkinter - Built-in with Python 3.x
+
+# Additional dependencies from main project
+playwright>=1.40.0
+google-generativeai>=0.3.0
+
+# Optional: For enhanced UI styling and theming
+# ttkthemes>=3.2.2  # Uncomment if you want additional themed widgets
+# pillow>=8.0.0     # Uncomment if you want to add custom icons/images
+
+# Modern UI Features:
+# - Custom color scheme with professional colors
+# - Modern typography using Segoe UI font
+# - Card-based layout with shadows and borders
+# - Hover effects and smooth transitions
+# - Status indicators with color coding
+# - Professional button styling
+# - Responsive layout design

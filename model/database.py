@@ -108,23 +108,23 @@ def create_feature(feature_name: str, db_path: str = "database.db") -> int:
     finally:
         conn.close()
 
-def get_all_features(db_path: str = "database.db") -> List[str]:
+def get_all_features(db_path: str = "database.db") -> List[Feature]:
     """Get all features from the database.
     
     Args:
         db_path: Path to SQLite database file
         
     Returns:
-        List[str]: List of feature names
+        List[Feature]: List of Feature objects
     """
     conn = connect_to_sqlite_database(db_path)
     
     try:
-        select_sql = "SELECT feature FROM features"
+        select_sql = "SELECT id, feature FROM features"
         cursor = conn.execute(select_sql)
         rows = cursor.fetchall()
         
-        return [row['feature'] for row in rows]
+        return [Feature(id=row['id'], feature=row['feature']) for row in rows]
         
     except Exception as e:
         raise RuntimeError(f"Failed to get features: {e}")
