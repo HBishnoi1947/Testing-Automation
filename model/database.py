@@ -331,6 +331,85 @@ def create_events(feature_name: str, events: List[dict], db_path: str = "databas
         conn.close()
 
 
+def update_events(feature_id: int, events: List[dict], db_path: str = "database.db") -> List[int]:
+    """Update events for a specific feature by deleting existing events and inserting new ones.
+    
+    Args:
+        feature_id: ID of the feature to update events for
+        events: List of event dictionaries with keys: operation_name, step_number, url, html_component, input_text
+        db_path: Path to SQLite database file
+        
+    Returns:
+        List[int]: List of created event IDs
+        
+    Example:
+        events = [
+            {
+                "operation_name": "input_text",
+                "step_number": 1,
+                "url": "https://example.com/login",
+                "html_component": "input[id='email']",
+                "input_text": "user@example.com"
+            },
+            {
+                "operation_name": "click",
+                "step_number": 2,
+                "url": "https://example.com/login",
+                "html_component": "button[type='submit']",
+                "input_text": None
+            }
+        ]
+        event_ids = update_events(1, events)  # Update events for feature_id 1
+    """
+    conn = connect_to_sqlite_database(db_path)
+    created_event_ids = []
+    
+    try:
+        # First, delete all existing events for this feature_id
+        delete_sql = "DELETE FROM events WHERE feature_id = ?"
+        cursor = conn.execute(delete_sql, (feature_id,))
+        deleted_count = cursor.rowcount
+        print(f"Deleted {deleted_count} existing events for feature_id {feature_id}")
+        
+        # Insert all new events
+        for event in events:
+            try:
+                # Get operation type ID - use existing connection
+                operation_type = _get_operation_type_by_name(conn, event["operation_name"])
+                if operation_type is None:
+                    print(f"Warning: Operation type '{event['operation_name']}' not found, skipping event")
+                    continue
+                
+                # Insert event
+                insert_sql = "INSERT INTO events (feature_id, url, html_component, operation_id, input_text, step_number) VALUES (?, ?, ?, ?, ?, ?)"
+                cursor = conn.execute(insert_sql, (
+                    feature_id,
+                    event.get("url"),
+                    event.get("html_component"),
+                    operation_type.id,
+                    event.get("input_text"),
+                    event["step_number"]
+                ))
+                event_id = cursor.lastrowid
+                created_event_ids.append(event_id)
+                
+                print(f"Created event with ID {event_id} for operation '{event['operation_name']}' (step {event['step_number']})")
+                
+            except Exception as e:
+                print(f"Error creating event for operation '{event.get('operation_name', 'unknown')}': {e}")
+                continue
+        
+        conn.commit()
+        print(f"Successfully updated {len(created_event_ids)} events for feature_id {feature_id}")
+        return created_event_ids
+        
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to update events for feature_id {feature_id}: {e}")
+    
+    finally:
+        conn.close()
+
 def get_all_events_with_details(db_path: str = "database.db") -> List[dict]:
     """Get all events with feature and operation details.
     

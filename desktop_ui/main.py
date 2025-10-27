@@ -352,8 +352,27 @@ class DesktopUI:
                                          bg=self.colors['surface'])
         self.events_count_label.pack(side=tk.LEFT)
         
+        # Buttons frame for run and update
+        buttons_frame = tk.Frame(events_bottom_frame, bg=self.colors['surface'])
+        buttons_frame.pack(side=tk.RIGHT)
+        
+        # Update Feature button
+        self.update_feature_button = tk.Button(buttons_frame,
+                                             text="🔄 Update Feature",
+                                             font=('Segoe UI', 9, 'bold'),
+                                             bg=self.colors['secondary'],
+                                             fg='white',
+                                             relief=tk.FLAT,
+                                             bd=0,
+                                             padx=15,
+                                             pady=5,
+                                             cursor='hand2',
+                                             command=self.update_feature,
+                                             state=tk.DISABLED)
+        self.update_feature_button.pack(side=tk.RIGHT, padx=(0, 10))
+        
         # Run Events button
-        self.run_events_button = tk.Button(events_bottom_frame,
+        self.run_events_button = tk.Button(buttons_frame,
                                          text="▶️ Run Events",
                                          font=('Segoe UI', 9, 'bold'),
                                          bg=self.colors['warning'],
@@ -426,6 +445,10 @@ class DesktopUI:
         # New feature button hover
         self.new_feature_button.bind("<Enter>", lambda e: on_enter(self.new_feature_button, self.colors['success'], self.colors['hover']))
         self.new_feature_button.bind("<Leave>", lambda e: on_leave(self.new_feature_button, self.colors['success']))
+        
+        # Update feature button hover
+        self.update_feature_button.bind("<Enter>", lambda e: on_enter(self.update_feature_button, self.colors['secondary'], self.colors['hover']))
+        self.update_feature_button.bind("<Leave>", lambda e: on_leave(self.update_feature_button, self.colors['secondary']))
         
         # Run events button hover
         self.run_events_button.bind("<Enter>", lambda e: on_enter(self.run_events_button, self.colors['warning'], self.colors['hover']))
@@ -511,17 +534,20 @@ class DesktopUI:
                 input_display
             ))
         
-        # Update events count and run button state
+        # Update events count and button states
         if self.current_feature:
             count_text = f"{len(self.events)} event{'s' if len(self.events) != 1 else ''} for '{self.current_feature.feature}'"
-            # Enable run button if there are events
+            # Enable buttons if there are events
             if len(self.events) > 0:
                 self.run_events_button.config(state=tk.NORMAL, text="▶️ Run Events")
+                self.update_feature_button.config(state=tk.NORMAL, text="🔄 Update Feature")
             else:
                 self.run_events_button.config(state=tk.DISABLED, text="▶️ Run Events")
+                self.update_feature_button.config(state=tk.DISABLED, text="🔄 Update Feature")
         else:
             count_text = "Select a feature to view events"
             self.run_events_button.config(state=tk.DISABLED, text="▶️ Run Events")
+            self.update_feature_button.config(state=tk.DISABLED, text="🔄 Update Feature")
         self.events_count_label.config(text=count_text)
     
     def refresh_data(self):
@@ -658,6 +684,145 @@ class DesktopUI:
         # Focus on URL entry
         url_entry.focus()
     
+    def update_feature(self):
+        """Update an existing feature using update automation workflow."""
+        if not self.current_feature or not self.events:
+            messagebox.showwarning("Warning", "No feature selected or no events to update!")
+            return
+        
+        # Get the URL from the first event
+        first_event_url = self.events[0].url if self.events and self.events[0].url else "https://example.com"
+        
+        # Create update dialog window
+        update_window = tk.Toplevel(self.root)
+        update_window.title("Update Feature")
+        update_window.geometry("500x350")
+        update_window.configure(bg='white')
+        update_window.transient(self.root)
+        update_window.grab_set()
+        
+        # Center the window
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - 250
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - 175
+        update_window.geometry(f"+{x}+{y}")
+        
+        # Main container
+        main_frame = tk.Frame(update_window, bg='white')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        # Title
+        title_label = tk.Label(main_frame,
+                              text=f"Update Feature: {self.current_feature.feature}",
+                              font=('Arial', 16, 'bold'),
+                              fg='#2c3e50',
+                              bg='white')
+        title_label.pack(pady=(0, 20))
+        
+        # URL display (read-only)
+        url_label = tk.Label(main_frame,
+                            text="Target URL:",
+                            font=('Arial', 10, 'bold'),
+                            fg='#2c3e50',
+                            bg='white')
+        url_label.pack(anchor=tk.W, pady=(0, 5))
+        
+        url_entry = tk.Entry(main_frame,
+                            font=('Arial', 10),
+                            width=60,
+                            state='readonly')
+        url_entry.pack(fill=tk.X, pady=(0, 15))
+        url_entry.config(state='normal')
+        url_entry.insert(0, first_event_url)
+        url_entry.config(state='readonly')
+        
+        # Prompt input
+        prompt_label = tk.Label(main_frame,
+                               text="Updated Automation Prompt:",
+                               font=('Arial', 10, 'bold'),
+                               fg='#2c3e50',
+                               bg='white')
+        prompt_label.pack(anchor=tk.W, pady=(0, 5))
+        
+        prompt_text = tk.Text(main_frame,
+                             font=('Arial', 10),
+                             height=6,
+                             width=60,
+                             wrap=tk.WORD)
+        prompt_text.pack(fill=tk.BOTH, expand=True, pady=(0, 20))
+        
+        # Buttons frame
+        buttons_frame = tk.Frame(main_frame, bg='white')
+        buttons_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        def start_update():
+            prompt = prompt_text.get("1.0", tk.END).strip()
+            
+            if not prompt:
+                messagebox.showerror("Error", "Please enter an updated prompt!")
+                return
+            
+            # Close update window
+            update_window.destroy()
+            
+            # Start update automation in background thread
+            self.update_status("Starting update automation workflow...", 'info')
+            
+            def run_update():
+                try:
+                    automation_runner = AutomationRunner(self.api_key)
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    success = loop.run_until_complete(
+                        automation_runner.run_update_automation_workflow(
+                            target_url=first_event_url,
+                            prompt=prompt,
+                            feature_id=self.current_feature.id,
+                            feature_name=self.current_feature.feature
+                        )
+                    )
+                    loop.close()
+                    
+                    # Update UI in main thread
+                    self.root.after(0, lambda: self._update_completed(success))
+                    
+                except Exception as e:
+                    self.root.after(0, lambda: self._update_error(str(e)))
+            
+            update_thread = threading.Thread(target=run_update)
+            update_thread.daemon = True
+            update_thread.start()
+        
+        def cancel():
+            update_window.destroy()
+        
+        # Buttons
+        update_button = tk.Button(buttons_frame,
+                                text="Update Feature",
+                                font=('Arial', 10, 'bold'),
+                                bg='#3498db',
+                                fg='white',
+                                relief=tk.RAISED,
+                                bd=2,
+                                padx=20,
+                                pady=8,
+                                command=start_update)
+        update_button.pack(side=tk.LEFT, padx=(0, 10))
+        
+        cancel_button = tk.Button(buttons_frame,
+                                text="Cancel",
+                                font=('Arial', 10, 'bold'),
+                                bg='#e74c3c',
+                                fg='white',
+                                relief=tk.RAISED,
+                                bd=2,
+                                padx=20,
+                                pady=8,
+                                command=cancel)
+        cancel_button.pack(side=tk.LEFT)
+        
+        # Focus on prompt text
+        prompt_text.focus()
+    
     def run_events(self):
         """Run all events for the selected feature."""
         if not self.current_feature or not self.events:
@@ -727,6 +892,21 @@ class DesktopUI:
         """Handle automation error."""
         self.update_status("Automation error", 'error')
         messagebox.showerror("Error", f"Automation failed: {error_msg}")
+    
+    def _update_completed(self, success):
+        """Handle update completion."""
+        if success:
+            self.update_status("Feature update completed successfully!", 'success')
+            messagebox.showinfo("Success", f"Feature '{self.current_feature.feature}' updated successfully!")
+            self.refresh_data()
+        else:
+            self.update_status("Feature update failed", 'error')
+            messagebox.showerror("Error", "Feature update failed!")
+    
+    def _update_error(self, error_msg):
+        """Handle update error."""
+        self.update_status("Update error", 'error')
+        messagebox.showerror("Error", f"Feature update failed: {error_msg}")
     
     
     def _get_operation_name_by_id(self, operation_id: int) -> str:
