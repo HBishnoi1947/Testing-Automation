@@ -60,10 +60,34 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     )
     """
     
+    # Create testing_module table
+    create_testing_module_table = """
+    CREATE TABLE IF NOT EXISTS testing_modules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        testing_module TEXT NOT NULL UNIQUE
+    )
+    """
+    
+    # Create map_testing_modules table
+    create_map_testing_module_table = """
+    CREATE TABLE IF NOT EXISTS map_testing_modules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        testing_module_id INTEGER NOT NULL,
+        event_id INTEGER,
+        feature_id INTEGER,
+        step_number INTEGER NOT NULL,
+        FOREIGN KEY (testing_module_id) REFERENCES testing_modules (id),
+        FOREIGN KEY (event_id) REFERENCES events (id),
+        FOREIGN KEY (feature_id) REFERENCES features (id)
+    )
+    """
+    
     # Execute table creation
     conn.execute(create_features_table)
     conn.execute(create_operation_types_table)
     conn.execute(create_events_table)
+    conn.execute(create_testing_module_table)
+    conn.execute(create_map_testing_module_table)
     
     # Insert predefined operation types if they don't exist
     insert_operation_types = """
@@ -720,6 +744,308 @@ def get_events_count(db_path: str = "database.db") -> int:
         
     except Exception as e:
         raise RuntimeError(f"Failed to count events in SQLite database: {e}")
+    
+    finally:
+        conn.close()
+
+
+# Testing Module Functions
+
+def create_testing_module(module_name: str, db_path: str = "database.db") -> int:
+    """Create a new testing module and return its ID.
+    
+    Args:
+        module_name: Name of the testing module
+        db_path: Path to SQLite database file
+        
+    Returns:
+        int: ID of the created testing module
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        # Insert testing module
+        insert_sql = "INSERT INTO testing_modules (testing_module) VALUES (?)"
+        cursor = conn.execute(insert_sql, (module_name,))
+        module_id = cursor.lastrowid
+        conn.commit()
+        
+        print(f"Created testing module '{module_name}' with ID {module_id}")
+        return module_id
+        
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to create testing module: {e}")
+    
+    finally:
+        conn.close()
+
+
+def get_all_testing_modules(db_path: str = "database.db") -> List[dict]:
+    """Get all testing modules from the database.
+    
+    Args:
+        db_path: Path to SQLite database file
+        
+    Returns:
+        List[dict]: List of testing module dictionaries
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        select_sql = "SELECT id, testing_module FROM testing_modules ORDER BY id"
+        cursor = conn.execute(select_sql)
+        rows = cursor.fetchall()
+        
+        return [{'id': row['id'], 'testing_module': row['testing_module']} for row in rows]
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to get testing modules: {e}")
+    
+    finally:
+        conn.close()
+
+
+def add_event_to_testing_module(module_id: int, event_id: int, step_number: int, db_path: str = "database.db") -> int:
+    """Add an event to a testing module.
+    
+    Args:
+        module_id: ID of the testing module
+        event_id: ID of the event to add
+        step_number: Step number in the sequence
+        db_path: Path to SQLite database file
+        
+    Returns:
+        int: ID of the created mapping
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        # Get feature_id from event
+        event_sql = "SELECT feature_id FROM events WHERE id = ?"
+        cursor = conn.execute(event_sql, (event_id,))
+        event_row = cursor.fetchone()
+        
+        if not event_row:
+            raise ValueError(f"Event with ID {event_id} not found")
+        
+        feature_id = event_row['feature_id']
+        
+        # Insert mapping
+        insert_sql = """
+        INSERT INTO map_testing_modules (testing_module_id, event_id, feature_id, step_number) 
+        VALUES (?, ?, ?, ?)
+        """
+        cursor = conn.execute(insert_sql, (module_id, event_id, feature_id, step_number))
+        mapping_id = cursor.lastrowid
+        conn.commit()
+        
+        print(f"Added event {event_id} to testing module {module_id} at step {step_number}")
+        return mapping_id
+        
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to add event to testing module: {e}")
+    
+    finally:
+        conn.close()
+
+
+def add_feature_to_testing_module(module_id: int, feature_id: int, step_number: int, db_path: str = "database.db") -> int:
+    """Add a feature to a testing module.
+    
+    Args:
+        module_id: ID of the testing module
+        feature_id: ID of the feature to add
+        step_number: Step number in the sequence
+        db_path: Path to SQLite database file
+        
+    Returns:
+        int: ID of the created mapping
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        # Insert mapping (event_id will be NULL for feature-only entries)
+        insert_sql = """
+        INSERT INTO map_testing_modules (testing_module_id, event_id, feature_id, step_number) 
+        VALUES (?, NULL, ?, ?)
+        """
+        cursor = conn.execute(insert_sql, (module_id, feature_id, step_number))
+        mapping_id = cursor.lastrowid
+        conn.commit()
+        
+        print(f"Added feature {feature_id} to testing module {module_id} at step {step_number}")
+        return mapping_id
+        
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to add feature to testing module: {e}")
+    
+    finally:
+        conn.close()
+
+
+def get_testing_module_flow(module_id: int, db_path: str = "database.db") -> List[dict]:
+    """Get the complete flow for a testing module.
+    
+    Args:
+        module_id: ID of the testing module
+        db_path: Path to SQLite database file
+        
+    Returns:
+        List[dict]: List of flow items with details
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        select_sql = """
+        SELECT 
+            mtm.id,
+            mtm.step_number,
+            mtm.event_id,
+            mtm.feature_id,
+            f.feature as feature_name,
+            e.url,
+            e.html_component,
+            e.input_text,
+            ot.operation,
+            ot.description
+        FROM map_testing_modules mtm
+        LEFT JOIN features f ON mtm.feature_id = f.id
+        LEFT JOIN events e ON mtm.event_id = e.id
+        LEFT JOIN operation_types ot ON e.operation_id = ot.id
+        WHERE mtm.testing_module_id = ?
+        ORDER BY mtm.step_number
+        """
+        
+        cursor = conn.execute(select_sql, (module_id,))
+        rows = cursor.fetchall()
+        
+        flow_items = []
+        for row in rows:
+            flow_items.append({
+                'mapping_id': row['id'],
+                'step_number': row['step_number'],
+                'event_id': row['event_id'],
+                'feature_id': row['feature_id'],
+                'feature_name': row['feature_name'],
+                'url': row['url'],
+                'html_component': row['html_component'],
+                'input_text': row['input_text'],
+                'operation': row['operation'],
+                'description': row['description'],
+                'type': 'event' if row['event_id'] else 'feature'
+            })
+        
+        return flow_items
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to get testing module flow: {e}")
+    
+    finally:
+        conn.close()
+
+
+def remove_from_testing_module(mapping_id: int, db_path: str = "database.db") -> None:
+    """Remove an item from a testing module.
+    
+    Args:
+        mapping_id: ID of the mapping to remove
+        db_path: Path to SQLite database file
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        # First, get the module_id and step_number of the item being removed
+        select_sql = "SELECT testing_module_id, step_number FROM map_testing_modules WHERE id = ?"
+        cursor = conn.execute(select_sql, (mapping_id,))
+        row = cursor.fetchone()
+        
+        if not row:
+            raise ValueError(f"Mapping with ID {mapping_id} not found")
+        
+        module_id, removed_step = row['testing_module_id'], row['step_number']
+        
+        # Delete the item
+        delete_sql = "DELETE FROM map_testing_modules WHERE id = ?"
+        cursor = conn.execute(delete_sql, (mapping_id,))
+        
+        if cursor.rowcount == 0:
+            raise ValueError(f"Mapping with ID {mapping_id} not found")
+        
+        # Reorder step numbers for remaining items
+        reorder_sql = """
+        UPDATE map_testing_modules 
+        SET step_number = step_number - 1 
+        WHERE testing_module_id = ? AND step_number > ?
+        """
+        cursor = conn.execute(reorder_sql, (module_id, removed_step))
+        
+        conn.commit()
+        print(f"Removed mapping {mapping_id} from testing module and reordered steps")
+        
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to remove from testing module: {e}")
+    
+    finally:
+        conn.close()
+
+
+def clear_testing_module_flow(module_id: int, db_path: str = "database.db") -> None:
+    """Clear all items from a testing module.
+    
+    Args:
+        module_id: ID of the testing module
+        db_path: Path to SQLite database file
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        delete_sql = "DELETE FROM map_testing_modules WHERE testing_module_id = ?"
+        cursor = conn.execute(delete_sql, (module_id,))
+        deleted_count = cursor.rowcount
+        conn.commit()
+        
+        print(f"Cleared {deleted_count} items from testing module {module_id}")
+        
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to clear testing module flow: {e}")
+    
+    finally:
+        conn.close()
+
+
+def delete_testing_module(module_id: int, db_path: str = "database.db") -> None:
+    """Delete a testing module and all its mappings.
+    
+    Args:
+        module_id: ID of the testing module to delete
+        db_path: Path to SQLite database file
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        # First delete all mappings
+        delete_mappings_sql = "DELETE FROM map_testing_modules WHERE testing_module_id = ?"
+        cursor = conn.execute(delete_mappings_sql, (module_id,))
+        mappings_deleted = cursor.rowcount
+        
+        # Then delete the module
+        delete_module_sql = "DELETE FROM testing_modules WHERE id = ?"
+        cursor = conn.execute(delete_module_sql, (module_id,))
+        
+        if cursor.rowcount == 0:
+            raise ValueError(f"Testing module with ID {module_id} not found")
+        
+        conn.commit()
+        print(f"Deleted testing module {module_id} and {mappings_deleted} mappings")
+        
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to delete testing module: {e}")
     
     finally:
         conn.close()
