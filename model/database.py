@@ -132,6 +132,48 @@ def create_feature(feature_name: str, db_path: str = "database.db") -> int:
     finally:
         conn.close()
 
+def delete_feature_by_feature_id(feature_id: int, db_path: str = "database.db") -> None:
+    """
+    Delete a feature by its ID. This will also delete all events mapped to that feature,
+    and before deleting, will check if the feature is mapped to a testing module and remove those mappings.
+
+    Args:
+        feature_id: ID of the feature
+        db_path: Path to SQLite database file
+
+    Raises:
+        ValueError: If the feature does not exist.
+        RuntimeError: On database failure.
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        # Check if the feature exists
+        cursor = conn.execute("SELECT id FROM features WHERE id = ?", (feature_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError(f"Feature with ID {feature_id} does not exist.")
+
+        # Check if feature is mapped to a testing module
+        cursor = conn.execute("SELECT COUNT(*) as count FROM map_testing_modules WHERE feature_id = ?", (feature_id,))
+        mapping_row = cursor.fetchone()
+        if mapping_row and mapping_row['count'] > 0:
+            raise ValueError(f"Feature with ID {feature_id} is mapped to a testing module and cannot be deleted.")
+
+        # Delete all events mapped to this feature
+        conn.execute("DELETE FROM events WHERE feature_id = ?", (feature_id,))
+
+        # Delete the feature itself
+        conn.execute("DELETE FROM features WHERE id = ?", (feature_id,))
+
+        conn.commit()
+        print(f"Deleted feature ID {feature_id}, associated mappings in testing modules, and all linked events.")
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to delete feature ID {feature_id}: {e}")
+    finally:
+        conn.close()
+
+
 def get_all_features(db_path: str = "database.db") -> List[Feature]:
     """Get all features from the database.
     

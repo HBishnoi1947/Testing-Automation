@@ -5,7 +5,7 @@ Features Component - Handles the features panel functionality.
 import tkinter as tk
 from tkinter import messagebox
 from typing import List, Optional
-from model.database import get_all_features
+from model.database import get_all_features, delete_feature_by_feature_id
 from model.feature import Feature
 
 
@@ -120,6 +120,20 @@ class FeaturesPage:
                                           cursor='hand2',
                                           command=self.create_new_feature)
         self.new_feature_button.pack(side=tk.LEFT)
+        
+        # Delete feature button
+        self.delete_feature_button = tk.Button(buttons_frame,
+                                             text="🗑 Delete",
+                                             font=('Segoe UI', 9, 'bold'),
+                                             bg='crimson',
+                                             fg='white',
+                                             relief=tk.FLAT,
+                                             bd=0,
+                                             padx=15,
+                                             pady=5,
+                                             cursor='hand2',
+                                             command=self.delete_selected_feature)
+        self.delete_feature_button.pack(side=tk.RIGHT)
     
     def load_data(self):
         """Load features from database."""
@@ -163,6 +177,26 @@ class FeaturesPage:
         # Call the callback function
         if self.on_create_feature_callback:
             self.on_create_feature_callback()
+
+    def delete_selected_feature(self):
+        """Delete the currently selected feature from the database."""
+        if not self.current_feature:
+            messagebox.showwarning("No selection", "Please select a feature to delete.")
+            return
+        
+        confirm = messagebox.askyesno(
+            "Confirm Delete",
+            f"Are you sure you want to delete feature '{self.current_feature.feature}' (ID: {self.current_feature.id})?\n\nThis will remove all its events.")
+        if not confirm:
+            return
+        
+        try:
+            delete_feature_by_feature_id(self.current_feature.id)
+            messagebox.showinfo("Deleted", f"Deleted feature '{self.current_feature.feature}'.")
+            self.current_feature = None
+            self.refresh_data()
+        except Exception as e:
+            messagebox.showerror("Delete failed", str(e))
     
     def get_current_feature(self) -> Optional[Feature]:
         """Get the currently selected feature."""
