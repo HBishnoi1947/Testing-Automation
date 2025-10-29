@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import os
 from model.database import get_events_by_feature_id, clear_all_events_from_sqlite
 from model.operation_type import OperationTypeMapper
+from dotenv import load_dotenv
 
 
 class WebAutomationAgent:
@@ -319,7 +320,10 @@ IMPORTANT RULES:
 
 # --------------------------- TEST SECTION ---------------------------
 if __name__ == "__main__":
-    API_KEY = "AIzaSyA_jrCpHgsAY-J3pIeKJWPuZ76su3ug2DY"  # replace with your key
+    load_dotenv()
+    API_KEY = os.getenv("GEMINI_API_KEY", "")
+    if not API_KEY:
+        raise RuntimeError("GEMINI_API_KEY not set. Create a .env with GEMINI_API_KEY=<your_key>")
     agent = WebAutomationAgent(API_KEY)
 
     html_path = r"E:\Testing Automation\POC modules\bishnoishaadi_dom.txt"

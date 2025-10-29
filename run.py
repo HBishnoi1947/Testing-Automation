@@ -12,6 +12,7 @@ Usage:
 """
 
 import os
+from dotenv import load_dotenv
 import json
 import asyncio
 from datetime import datetime
@@ -21,17 +22,19 @@ from model.database import get_events_by_feature_id, update_events, create_event
 
 
 class AutomationRunner:
-    def __init__(self, api_key: str, db_path: str = "database.db"):
+    def __init__(self, db_path: str = "database.db"):
         """
         Initialize the automation runner.
         
         Args:
-            api_key: Google Gemini API key for AI processing
             db_path: Path to SQLite database file
         """
-        self.api_key = api_key
+        load_dotenv()
+        self.api_key = os.getenv("GEMINI_API_KEY", "")
+        if not self.api_key:
+            raise RuntimeError("GEMINI_API_KEY not set. Create a .env with GEMINI_API_KEY=<your_key>")
         self.db_path = db_path
-        self.ai_agent = WebAutomationAgent(api_key)
+        self.ai_agent = WebAutomationAgent(self.api_key)
         
     async def run_automation_workflow(self, target_url: str, prompt: str, dom_output_file: str = None):
         """
@@ -249,107 +252,6 @@ class AutomationRunner:
         except Exception as e:
             print(f"❌ Failed to save events: {e}")
 
-
-async def main():
-    """
-    Main function to run the automation workflow with hardcoded values.
-    """
-    # Configuration
-    API_KEY = "AIzaSyA_jrCpHgsAY-J3pIeKJWPuZ76su3ug2DY"  # Replace with your API key
-    TARGET_URL = "https://www.bishnoishaadi.com/login"
-    HARDCODED_PROMPT = "Login with email = harshbshnoi@gmail.com and password = 123456"
-    DATABASE_PATH = "database.db"
-    
-    # Initialize automation runner
-    runner = AutomationRunner(API_KEY, DATABASE_PATH)
-    
-    # Example 1: Create new automation workflow
-    print("=" * 80)
-    print("🚀 RUNNING CREATE AUTOMATION WORKFLOW")
-    print("=" * 80)
-    
-    success = await runner.run_automation_workflow(
-        target_url=TARGET_URL,
-        prompt=HARDCODED_PROMPT
-    )
-    
-    if success:
-        print("\n🎯 Create workflow completed successfully!")
-        print(f"Check the database at: {DATABASE_PATH}")
-        print("DOM content saved with auto-generated filename")
-    else:
-        print("\n💥 Create workflow failed. Check the error messages above.")
-        return
-    
-    # Example 2: Update existing automation workflow
-    print("\n" + "=" * 80)
-    print("🔄 RUNNING UPDATE AUTOMATION WORKFLOW")
-    print("=" * 80)
-    
-    # Assuming feature_id 1 exists (you may need to adjust this based on your database)
-    FEATURE_ID = 1
-    UPDATE_PROMPT = "Login with email = updated@example.com and password = newpassword123"
-    
-    # Get feature name for the update workflow
-    feature_name = "Login"
-    
-    update_success = await runner.run_update_automation_workflow(
-        target_url=TARGET_URL,
-        prompt=UPDATE_PROMPT,
-        feature_id=FEATURE_ID,
-        feature_name=feature_name
-    )
-    
-    if update_success:
-        print("\n🎯 Update workflow completed successfully!")
-        print(f"Updated events for feature_id {FEATURE_ID}")
-        print("DOM content saved with auto-generated filename")
-    else:
-        print("\n💥 Update workflow failed. Check the error messages above.")
-
-
-async def test_update_workflow():
-    """
-    Test function specifically for the update automation workflow.
-    """
-    # Configuration
-    API_KEY = "AIzaSyA_jrCpHgsAY-J3pIeKJWPuZ76su3ug2DY"  # Replace with your API key
-    TARGET_URL = "https://www.bishnoishaadi.com/login"
-    UPDATE_PROMPT = "Login with email = test@example.com and password = testpass123"
-    DATABASE_PATH = "database.db"
-    FEATURE_ID = 1  # Adjust this to match an existing feature in your database
-    
-    # Initialize automation runner
-    runner = AutomationRunner(API_KEY, DATABASE_PATH)
-    
-    print("=" * 80)
-    print("🧪 TESTING UPDATE AUTOMATION WORKFLOW")
-    print("=" * 80)
-    
-    # Get feature name for the test
-    feature_name = "Login"
-    
-    success = await runner.run_update_automation_workflow(
-        target_url=TARGET_URL,
-        prompt=UPDATE_PROMPT,
-        feature_id=FEATURE_ID,
-        feature_name=feature_name
-    )
-    
-    if success:
-        print("\n🎯 Update workflow test completed successfully!")
-        print(f"Updated events for feature_id {FEATURE_ID}")
-    else:
-        print("\n💥 Update workflow test failed. Check the error messages above.")
-
-
 if __name__ == "__main__":
     import sys
     
-    # Check if user wants to run only the update workflow test
-    if len(sys.argv) > 1 and sys.argv[1] == "test-update":
-        print("Running update workflow test only...")
-        asyncio.run(test_update_workflow())
-    else:
-        # Run the full workflow (create + update)
-        asyncio.run(main())

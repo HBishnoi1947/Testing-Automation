@@ -4,6 +4,7 @@ Provides a beautiful, modern tkinter-based interface to manage features, events,
 """
 
 import os
+from dotenv import load_dotenv
 import sys
 import threading
 import webbrowser
@@ -58,8 +59,6 @@ class DesktopUI:
         # Configure root window
         self.root.configure(bg=self.colors['background'])
         
-        # Data
-        self.api_key = "AIzaSyA_jrCpHgsAY-J3pIeKJWPuZ76su3ug2DY"  # Replace with your API key
         
         # Configure modern styling
         self.setup_styles()
@@ -431,7 +430,7 @@ class DesktopUI:
             
             def run_update():
                 try:
-                    automation_runner = AutomationRunner(self.api_key)
+                    automation_runner = AutomationRunner()
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     success = loop.run_until_complete(
@@ -702,7 +701,7 @@ class DesktopUI:
             
             def run_automation():
                 try:
-                    automation_runner = AutomationRunner(self.api_key)
+                    automation_runner = AutomationRunner()
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     success = loop.run_until_complete(
@@ -836,7 +835,7 @@ class DesktopUI:
             
             def run_update():
                 try:
-                    automation_runner = AutomationRunner(self.api_key)
+                    automation_runner = AutomationRunner()
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     success = loop.run_until_complete(
