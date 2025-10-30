@@ -195,6 +195,9 @@ class FeaturesPage:
             messagebox.showinfo("Deleted", f"Deleted feature '{self.current_feature.feature}'.")
             self.current_feature = None
             self.refresh_data()
+            # Notify parent to refresh other pages (e.g., testing module page)
+            if self.on_refresh_callback:
+                self.on_refresh_callback()
         except Exception as e:
             messagebox.showerror("Delete failed", str(e))
     

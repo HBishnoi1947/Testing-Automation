@@ -11,7 +11,7 @@ from execute import execute_events
 
 
 def run_testing_module(root: tk.Tk, update_status, features_page, module, flow):
-    """Convert flow items to events and execute them in a background thread."""
+    """Execute a feature-only module: expand each feature step into its events."""
     if not module or not flow:
         messagebox.showwarning("Warning", "No module selected or no flow items to run!")
         return
@@ -28,14 +28,14 @@ def run_testing_module(root: tk.Tk, update_status, features_page, module, flow):
     def _worker():
         try:
             events_to_run = []
+            # For each feature step, collect its events in step order
             for item in flow:
-                if item['type'] == 'event' and item['event_id']:
-                    for feature in features_page.get_all_features():
-                        feature_events = get_events_by_feature_id(feature.id)
-                        for event in feature_events:
-                            if event.id == item['event_id']:
-                                events_to_run.append(event)
-                                break
+                feature_id = item.get('feature_id')
+                if feature_id:
+                    feature_events = get_events_by_feature_id(feature_id)
+                    # Append in their existing step order
+                    events_to_run.extend(sorted(feature_events, key=lambda e: e.step_number))
+                print("harsh", events_to_run)
             if events_to_run:
                 success = execute_events(events_to_run, headless=False)
                 root.after(0, lambda: _module_execution_completed(update_status, success, module))

@@ -42,16 +42,13 @@ class EventExecutor:
             self.playwright = sync_playwright().start()
             self.browser = self.playwright.chromium.launch(headless=headless)
             self.page = self.browser.new_page()
-            
-            # Sort events by step number
-            sorted_events = sorted(events, key=lambda x: x.step_number)
-            
-            print(f"Executing {len(sorted_events)} events...")
+                  
+            print(f"Executing {len(events)} events...")
             
             # Execute each event
             success_count = 0
-            for i, event in enumerate(sorted_events, 1):
-                print(f"\n--- Executing Event {i}/{len(sorted_events)} ---")
+            for i, event in enumerate(events, 1):
+                print(f"\n--- Executing Event {i}/{len(events)} ---")
                 print(f"Step: {event.step_number}")
                 print(f"URL: {event.url}")
                 print(f"Component: {event.html_component}")
@@ -69,14 +66,14 @@ class EventExecutor:
                 # Small delay between events
                 time.sleep(1)
             
-            print(f"\n🎯 Execution completed: {success_count}/{len(sorted_events)} events successful")
+            print(f"\n🎯 Execution completed: {success_count}/{len(events)} events successful")
             
             # Keep browser open for a moment to see results
             if not headless:
                 print("Browser will close in 3 seconds...")
                 time.sleep(3)
             
-            return success_count == len(sorted_events)
+            return success_count == len(events)
             
         except Exception as e:
             print(f"❌ Error during execution: {e}")

@@ -73,11 +73,9 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     CREATE TABLE IF NOT EXISTS map_testing_modules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         testing_module_id INTEGER NOT NULL,
-        event_id INTEGER,
         feature_id INTEGER,
         step_number INTEGER NOT NULL,
         FOREIGN KEY (testing_module_id) REFERENCES testing_modules (id),
-        FOREIGN KEY (event_id) REFERENCES events (id),
         FOREIGN KEY (feature_id) REFERENCES features (id)
     )
     """
@@ -849,48 +847,8 @@ def get_all_testing_modules(db_path: str = "database.db") -> List[dict]:
 
 
 def add_event_to_testing_module(module_id: int, event_id: int, step_number: int, db_path: str = "database.db") -> int:
-    """Add an event to a testing module.
-    
-    Args:
-        module_id: ID of the testing module
-        event_id: ID of the event to add
-        step_number: Step number in the sequence
-        db_path: Path to SQLite database file
-        
-    Returns:
-        int: ID of the created mapping
-    """
-    conn = connect_to_sqlite_database(db_path)
-    
-    try:
-        # Get feature_id from event
-        event_sql = "SELECT feature_id FROM events WHERE id = ?"
-        cursor = conn.execute(event_sql, (event_id,))
-        event_row = cursor.fetchone()
-        
-        if not event_row:
-            raise ValueError(f"Event with ID {event_id} not found")
-        
-        feature_id = event_row['feature_id']
-        
-        # Insert mapping
-        insert_sql = """
-        INSERT INTO map_testing_modules (testing_module_id, event_id, feature_id, step_number) 
-        VALUES (?, ?, ?, ?)
-        """
-        cursor = conn.execute(insert_sql, (module_id, event_id, feature_id, step_number))
-        mapping_id = cursor.lastrowid
-        conn.commit()
-        
-        print(f"Added event {event_id} to testing module {module_id} at step {step_number}")
-        return mapping_id
-        
-    except Exception as e:
-        conn.rollback()
-        raise RuntimeError(f"Failed to add event to testing module: {e}")
-    
-    finally:
-        conn.close()
+    """Deprecated: Event-level flows are not supported. Use add_feature_to_testing_module instead."""
+    raise NotImplementedError("Event-level flows have been removed. Use add_feature_to_testing_module().")
 
 
 def add_feature_to_testing_module(module_id: int, feature_id: int, step_number: int, db_path: str = "database.db") -> int:
@@ -908,10 +866,16 @@ def add_feature_to_testing_module(module_id: int, feature_id: int, step_number: 
     conn = connect_to_sqlite_database(db_path)
     
     try:
-        # Insert mapping (event_id will be NULL for feature-only entries)
+        # Validate if the feature_id exists in the features table
+        check_feature_sql = "SELECT 1 FROM features WHERE id = ?"
+        cursor = conn.execute(check_feature_sql, (feature_id,))
+        result = cursor.fetchone()
+        if not result:
+            raise ValueError(f"Feature ID {feature_id} does not exist in the database.")
+        # Insert mapping for feature-only flow
         insert_sql = """
-        INSERT INTO map_testing_modules (testing_module_id, event_id, feature_id, step_number) 
-        VALUES (?, NULL, ?, ?)
+        INSERT INTO map_testing_modules (testing_module_id, feature_id, step_number) 
+        VALUES (?, ?, ?)
         """
         cursor = conn.execute(insert_sql, (module_id, feature_id, step_number))
         mapping_id = cursor.lastrowid
@@ -945,18 +909,10 @@ def get_testing_module_flow(module_id: int, db_path: str = "database.db") -> Lis
         SELECT 
             mtm.id,
             mtm.step_number,
-            mtm.event_id,
             mtm.feature_id,
-            f.feature as feature_name,
-            e.url,
-            e.html_component,
-            e.input_text,
-            ot.operation,
-            ot.description
+            f.feature as feature_name
         FROM map_testing_modules mtm
         LEFT JOIN features f ON mtm.feature_id = f.id
-        LEFT JOIN events e ON mtm.event_id = e.id
-        LEFT JOIN operation_types ot ON e.operation_id = ot.id
         WHERE mtm.testing_module_id = ?
         ORDER BY mtm.step_number
         """
@@ -969,15 +925,9 @@ def get_testing_module_flow(module_id: int, db_path: str = "database.db") -> Lis
             flow_items.append({
                 'mapping_id': row['id'],
                 'step_number': row['step_number'],
-                'event_id': row['event_id'],
                 'feature_id': row['feature_id'],
                 'feature_name': row['feature_name'],
-                'url': row['url'],
-                'html_component': row['html_component'],
-                'input_text': row['input_text'],
-                'operation': row['operation'],
-                'description': row['description'],
-                'type': 'event' if row['event_id'] else 'feature'
+                'type': 'feature'
             })
         
         return flow_items

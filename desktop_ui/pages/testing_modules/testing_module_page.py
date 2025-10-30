@@ -7,7 +7,7 @@ from tkinter import ttk, messagebox, simpledialog
 from typing import List, Optional, Dict, Any
 from model.database import (
     get_all_testing_modules, create_testing_module, get_testing_module_flow,
-    add_event_to_testing_module, add_feature_to_testing_module,
+    add_feature_to_testing_module,
     remove_from_testing_module, clear_testing_module_flow, delete_testing_module
 )
 from model.database import get_all_features, get_events_by_feature_id
@@ -188,7 +188,7 @@ class TestingModulePage:
         available_content = tk.Frame(available_card, bg=self.colors['surface'])
         available_content.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
         
-        # Tab notebook for features and events
+        # Tab notebook (features only)
         self.available_notebook = ttk.Notebook(available_content)
         self.available_notebook.pack(fill=tk.BOTH, expand=True)
         
@@ -231,44 +231,7 @@ class TestingModulePage:
                                      command=self.add_feature_to_flow)
         add_feature_button.pack(fill=tk.X, pady=(10, 0))
         
-        # Events tab
-        events_frame = tk.Frame(self.available_notebook, bg=self.colors['surface'])
-        self.available_notebook.add(events_frame, text="Events")
-        
-        # Events listbox
-        events_listbox_frame = tk.Frame(events_frame, bg=self.colors['surface'])
-        events_listbox_frame.pack(fill=tk.BOTH, expand=True)
-        
-        self.events_listbox = tk.Listbox(events_listbox_frame,
-                                       font=('Segoe UI', 10),
-                                       bg=self.colors['surface'],
-                                       fg=self.colors['text'],
-                                       selectbackground=self.colors['secondary'],
-                                       selectforeground='white',
-                                       relief=tk.FLAT,
-                                       bd=0,
-                                       highlightthickness=1,
-                                       highlightcolor=self.colors['secondary'],
-                                       highlightbackground=self.colors['border'])
-        self.events_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
-        events_scrollbar = tk.Scrollbar(events_listbox_frame, orient=tk.VERTICAL, command=self.events_listbox.yview)
-        events_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.events_listbox.configure(yscrollcommand=events_scrollbar.set)
-        
-        # Add event button
-        add_event_button = tk.Button(events_frame,
-                                    text="➕ Add Event to Flow",
-                                    font=('Segoe UI', 9, 'bold'),
-                                    bg=self.colors['success'],
-                                    fg='white',
-                                    relief=tk.FLAT,
-                                    bd=0,
-                                    padx=10,
-                                    pady=5,
-                                    cursor='hand2',
-                                    command=self.add_event_to_flow)
-        add_event_button.pack(fill=tk.X, pady=(10, 0))
+        # Events tab removed for feature-only flows
     
     def create_flow_panel(self, parent):
         """Create the module flow panel."""
@@ -388,12 +351,7 @@ class TestingModulePage:
             self.features = get_all_features()
             self.update_features_display()
             
-            # Load events (we'll load all events for now, could be optimized)
-            self.events = []
-            for feature in self.features:
-                feature_events = get_events_by_feature_id(feature.id)
-                self.events.extend(feature_events)
-            self.update_events_display()
+            # Events list no longer used in feature-only flows
             
             return True
         except Exception as e:
@@ -416,18 +374,7 @@ class TestingModulePage:
         for i, feature in enumerate(self.features, 1):
             self.features_listbox.insert(tk.END, f"{i:2d}. {feature.feature} (ID: {feature.id})")
     
-    def update_events_display(self):
-        """Update the events listbox display."""
-        self.events_listbox.delete(0, tk.END)
-        for i, event in enumerate(self.events, 1):
-            # Find the feature name for this event
-            feature_name = "Unknown"
-            for feature in self.features:
-                if feature.id == event.feature_id:
-                    feature_name = feature.feature
-                    break
-            
-            self.events_listbox.insert(tk.END, f"{i:2d}. {feature_name} - Event {event.id} (Step {event.step_number})")
+    # Events UI removed
     
     def update_flow_display(self):
         """Update the flow treeview display."""
@@ -437,14 +384,13 @@ class TestingModulePage:
         
         # Add flow items
         for item in self.module_flow:
-            url_display = item['url'][:50] + "..." if item['url'] and len(item['url']) > 50 else item['url'] or ""
-            
+            # Feature-only: type always Feature; no operation/URL
             self.flow_tree.insert('', 'end', values=(
                 item['step_number'],
-                item['type'].title(),
+                'Feature',
                 item['feature_name'],
-                item['operation'] or "",
-                url_display
+                '',
+                ''
             ))
         
         # Update flow count and button states
@@ -558,33 +504,7 @@ class TestingModulePage:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to add feature to flow: {e}")
     
-    def add_event_to_flow(self):
-        """Add selected event to the current module flow."""
-        if not self.current_module:
-            messagebox.showwarning("Warning", "Please select a testing module first!")
-            return
-        
-        selection = self.events_listbox.curselection()
-        if not selection:
-            messagebox.showwarning("Warning", "Please select an event to add!")
-            return
-        
-        try:
-            event_index = selection[0]
-            event = self.events[event_index]
-            
-            # Get next step number
-            next_step = max([item['step_number'] for item in self.module_flow], default=0) + 1
-            
-            # Add event to module
-            add_event_to_testing_module(self.current_module['id'], event.id, next_step)
-            
-            # Refresh flow
-            self.load_module_flow()
-            messagebox.showinfo("Success", f"Added event to module flow!")
-            
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to add event to flow: {e}")
+    # add_event_to_flow removed for feature-only flows
     
     def remove_selected_item(self):
         """Remove selected item from the module flow."""
