@@ -10,7 +10,7 @@ from model.database import (
     add_feature_to_testing_module,
     remove_from_testing_module, clear_testing_module_flow, delete_testing_module
 )
-from model.database import get_all_features, get_events_by_feature_id
+from model.database import get_all_features, get_features_by_project, get_events_by_feature_id
 from model.feature import Feature
 from model.event import Event
 
@@ -18,17 +18,19 @@ from model.event import Event
 class TestingModulePage:
     """Testing Module component for the desktop UI."""
     
-    def __init__(self, parent_frame, colors, on_run_module_callback):
+    def __init__(self, parent_frame, colors, on_run_module_callback, project_id: int = None):
         """Initialize the testing module component.
         
         Args:
             parent_frame: Parent frame to attach to
             colors: Color scheme dictionary
             on_run_module_callback: Callback function when run module is clicked
+            project_id: Optional project ID to filter features
         """
         self.parent_frame = parent_frame
         self.colors = colors
         self.on_run_module_callback = on_run_module_callback
+        self.project_id = project_id
         
         # Data
         self.testing_modules = []  # List of testing module dictionaries
@@ -347,8 +349,11 @@ class TestingModulePage:
             self.testing_modules = get_all_testing_modules()
             self.update_modules_display()
             
-            # Load features
-            self.features = get_all_features()
+            # Load features - filter by project if project_id is provided
+            if self.project_id:
+                self.features = get_features_by_project(self.project_id)
+            else:
+                self.features = get_all_features()
             self.update_features_display()
             
             # Events list no longer used in feature-only flows
@@ -357,6 +362,10 @@ class TestingModulePage:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load data: {e}")
             return False
+    
+    def refresh_data(self):
+        """Refresh data from database."""
+        return self.load_data()
     
     def update_modules_display(self):
         """Update the modules listbox display."""

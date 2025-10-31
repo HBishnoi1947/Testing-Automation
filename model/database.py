@@ -6,6 +6,7 @@ import sqlite3
 import os
 from typing import Optional, List
 from .feature import Feature
+from .project import Project
 from .operation_type import OperationType
 from .event import Event
 
@@ -28,11 +29,26 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row  # Enable column access by name
     
-    # Create features table
+    # Enable foreign keys
+    conn.execute("PRAGMA foreign_keys = ON")
+    
+    # Create projects table
+    create_projects_table = """
+    CREATE TABLE IF NOT EXISTS projects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """
+    
+    # Create features table with project_id foreign key
     create_features_table = """
     CREATE TABLE IF NOT EXISTS features (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        feature TEXT NOT NULL
+        feature TEXT NOT NULL,
+        project_id INTEGER NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
     )
     """
     
@@ -55,7 +71,7 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
         operation_id INTEGER NOT NULL,
         input_text TEXT,
         step_number INTEGER NOT NULL,
-        FOREIGN KEY (feature_id) REFERENCES features (id),
+        FOREIGN KEY (feature_id) REFERENCES features (id) ON DELETE CASCADE,
         FOREIGN KEY (operation_id) REFERENCES operation_types (id)
     )
     """
@@ -81,6 +97,7 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     """
     
     # Execute table creation
+    conn.execute(create_projects_table)
     conn.execute(create_features_table)
     conn.execute(create_operation_types_table)
     conn.execute(create_events_table)
@@ -101,11 +118,189 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     return conn
 
 
-def create_feature(feature_name: str, db_path: str = "database.db") -> int:
+# ==================== PROJECT OPERATIONS ====================
+
+def create_project(name: str, description: str = None, db_path: str = "database.db") -> int:
+    """Create a new project and return its ID.
+    
+    Args:
+        name: Name of the project
+        description: Optional description of the project
+        db_path: Path to SQLite database file
+        
+    Returns:
+        int: ID of the created project
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        # Insert project
+        insert_sql = "INSERT INTO projects (name, description) VALUES (?, ?)"
+        cursor = conn.execute(insert_sql, (name, description))
+        project_id = cursor.lastrowid
+        conn.commit()
+        
+        print(f"Created project '{name}' with ID {project_id}")
+        return project_id
+        
+    except sqlite3.IntegrityError:
+        raise RuntimeError(f"Project with name '{name}' already exists")
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to create project: {e}")
+    
+    finally:
+        conn.close()
+
+
+def get_all_projects(db_path: str = "database.db") -> List[Project]:
+    """Get all projects from the database.
+    
+    Args:
+        db_path: Path to SQLite database file
+        
+    Returns:
+        List[Project]: List of Project objects
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        select_sql = "SELECT id, name, description, created_at FROM projects ORDER BY created_at DESC"
+        cursor = conn.execute(select_sql)
+        rows = cursor.fetchall()
+        
+        return [Project(
+            id=row['id'], 
+            name=row['name'], 
+            description=row['description'],
+            created_at=row['created_at']
+        ) for row in rows]
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to get projects: {e}")
+    
+    finally:
+        conn.close()
+
+
+def get_project_by_id(project_id: int, db_path: str = "database.db") -> Optional[Project]:
+    """Get a specific project by ID.
+    
+    Args:
+        project_id: ID of the project
+        db_path: Path to SQLite database file
+        
+    Returns:
+        Optional[Project]: Project object if found, None otherwise
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        select_sql = "SELECT id, name, description, created_at FROM projects WHERE id = ?"
+        cursor = conn.execute(select_sql, (project_id,))
+        row = cursor.fetchone()
+        
+        if row is None:
+            return None
+        
+        return Project(
+            id=row['id'],
+            name=row['name'],
+            description=row['description'],
+            created_at=row['created_at']
+        )
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to get project: {e}")
+    
+    finally:
+        conn.close()
+
+
+def update_project(project_id: int, name: str = None, description: str = None, db_path: str = "database.db") -> None:
+    """Update a project's details.
+    
+    Args:
+        project_id: ID of the project to update
+        name: New name for the project (optional)
+        description: New description for the project (optional)
+        db_path: Path to SQLite database file
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        # Build update query dynamically based on what's provided
+        update_parts = []
+        params = []
+        
+        if name is not None:
+            update_parts.append("name = ?")
+            params.append(name)
+        
+        if description is not None:
+            update_parts.append("description = ?")
+            params.append(description)
+        
+        if not update_parts:
+            return  # Nothing to update
+        
+        params.append(project_id)
+        update_sql = f"UPDATE projects SET {', '.join(update_parts)} WHERE id = ?"
+        
+        cursor = conn.execute(update_sql, params)
+        
+        if cursor.rowcount == 0:
+            raise ValueError(f"Project with ID {project_id} not found")
+        
+        conn.commit()
+        print(f"Updated project with ID {project_id}")
+        
+    except sqlite3.IntegrityError:
+        raise RuntimeError(f"Project with name '{name}' already exists")
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to update project: {e}")
+    
+    finally:
+        conn.close()
+
+
+def delete_project(project_id: int, db_path: str = "database.db") -> None:
+    """Delete a project and all its associated features and events (CASCADE).
+    
+    Args:
+        project_id: ID of the project to delete
+        db_path: Path to SQLite database file
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        # Delete project (will cascade to features and events)
+        delete_sql = "DELETE FROM projects WHERE id = ?"
+        cursor = conn.execute(delete_sql, (project_id,))
+        
+        if cursor.rowcount == 0:
+            raise ValueError(f"Project with ID {project_id} not found")
+        
+        conn.commit()
+        print(f"Deleted project with ID {project_id} and all associated data")
+        
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to delete project: {e}")
+    
+    finally:
+        conn.close()
+
+
+# ==================== FEATURE OPERATIONS ====================
+
+def create_feature(feature_name: str, project_id: int, db_path: str = "database.db") -> int:
     """Create a new feature and return its ID.
     
     Args:
         feature_name: Name of the feature
+        project_id: ID of the project this feature belongs to
         db_path: Path to SQLite database file
         
     Returns:
@@ -115,12 +310,12 @@ def create_feature(feature_name: str, db_path: str = "database.db") -> int:
     
     try:
         # Insert feature
-        insert_sql = "INSERT INTO features (feature) VALUES (?)"
-        cursor = conn.execute(insert_sql, (feature_name,))
+        insert_sql = "INSERT INTO features (feature, project_id) VALUES (?, ?)"
+        cursor = conn.execute(insert_sql, (feature_name, project_id))
         feature_id = cursor.lastrowid
         conn.commit()
         
-        print(f"Created feature '{feature_name}' with ID {feature_id}")
+        print(f"Created feature '{feature_name}' with ID {feature_id} for project {project_id}")
         return feature_id
         
     except Exception as e:
@@ -184,14 +379,69 @@ def get_all_features(db_path: str = "database.db") -> List[Feature]:
     conn = connect_to_sqlite_database(db_path)
     
     try:
-        select_sql = "SELECT id, feature FROM features"
+        select_sql = "SELECT id, feature, project_id FROM features"
         cursor = conn.execute(select_sql)
         rows = cursor.fetchall()
         
-        return [Feature(id=row['id'], feature=row['feature']) for row in rows]
+        return [Feature(id=row['id'], feature=row['feature'], project_id=row['project_id']) for row in rows]
         
     except Exception as e:
         raise RuntimeError(f"Failed to get features: {e}")
+    
+    finally:
+        conn.close()
+
+
+def get_features_by_project(project_id: int, db_path: str = "database.db") -> List[Feature]:
+    """Get all features for a specific project.
+    
+    Args:
+        project_id: ID of the project
+        db_path: Path to SQLite database file
+        
+    Returns:
+        List[Feature]: List of Feature objects for the project
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        select_sql = "SELECT id, feature, project_id FROM features WHERE project_id = ?"
+        cursor = conn.execute(select_sql, (project_id,))
+        rows = cursor.fetchall()
+        
+        return [Feature(id=row['id'], feature=row['feature'], project_id=row['project_id']) for row in rows]
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to get features for project: {e}")
+    
+    finally:
+        conn.close()
+
+
+def get_feature_by_id(feature_id: int, db_path: str = "database.db") -> Optional[Feature]:
+    """Get a specific feature by ID.
+    
+    Args:
+        feature_id: ID of the feature
+        db_path: Path to SQLite database file
+        
+    Returns:
+        Optional[Feature]: Feature object if found, None otherwise
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        select_sql = "SELECT id, feature, project_id FROM features WHERE id = ?"
+        cursor = conn.execute(select_sql, (feature_id,))
+        row = cursor.fetchone()
+        
+        if row is None:
+            return None
+        
+        return Feature(id=row['id'], feature=row['feature'], project_id=row['project_id'])
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to get feature: {e}")
     
     finally:
         conn.close()
@@ -227,11 +477,54 @@ def get_operation_type_by_name(operation_name: str, db_path: str = "database.db"
         conn.close()
 
 
-def create_event(feature_name: str, operation_name: str, step_number: int, url: Optional[str] = None, html_component: Optional[str] = None, input_text: Optional[str] = None, db_path: str = "database.db") -> int:
+# ==================== OPERATION TYPE OPERATIONS ====================
+
+def get_operation_type_by_name(operation_name: str, db_path: str = "database.db") -> Optional[OperationType]:
+    """Get an operation type by name.
+    
+    Args:
+        operation_name: Name of the operation type to find
+        db_path: Path to SQLite database file
+        
+    Returns:
+        Optional[OperationType]: OperationType object if found, None otherwise
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        select_sql = "SELECT * FROM operation_types WHERE operation = ?"
+        cursor = conn.execute(select_sql, (operation_name,))
+        row = cursor.fetchone()
+        
+        if row is None:
+            return None
+        
+        return OperationType(id=row['id'], operation=row['operation'], description=row['description'])
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to get operation type: {e}")
+    
+    finally:
+        conn.close()
+
+
+# ==================== EVENT OPERATIONS ====================
+
+def create_event(
+    feature_name: str,
+    project_id: int,
+    operation_name: str,
+    step_number: int,
+    url: str,
+    html_component: str,
+    input_text: str = None,
+    db_path: str = "database.db"
+) -> int:
     """Create a new event.
     
     Args:
         feature_name: Name of the feature
+        project_id: ID of the project
         operation_name: Name of the operation type
         step_number: Order of execution
         url: Optional URL to navigate to
@@ -245,8 +538,8 @@ def create_event(feature_name: str, operation_name: str, step_number: int, url: 
     conn = connect_to_sqlite_database(db_path)
     
     try:
-        # Get feature ID
-        feature_id = create_feature(feature_name, db_path)
+        # Get or create feature ID
+        feature_id = create_feature(feature_name, project_id, db_path)
         
         # Get operation type ID
         operation_type = get_operation_type_by_name(operation_name, db_path)
@@ -270,23 +563,24 @@ def create_event(feature_name: str, operation_name: str, step_number: int, url: 
         conn.close()
 
 
-def _get_or_create_feature_id(conn: sqlite3.Connection, feature_name: str) -> int:
+def _get_or_create_feature_id(conn: sqlite3.Connection, feature_name: str, project_id: int) -> int:
     """Get or create a feature and return its ID using existing connection.
     
     Args:
         conn: Existing database connection
         feature_name: Name of the feature
+        project_id: ID of the project
         
     Returns:
         int: ID of the feature
     """
     try:
         # Insert feature
-        insert_sql = "INSERT INTO features (feature) VALUES (?)"
-        cursor = conn.execute(insert_sql, (feature_name,))
+        insert_sql = "INSERT INTO features (feature, project_id) VALUES (?, ?)"
+        cursor = conn.execute(insert_sql, (feature_name, project_id))
         feature_id = cursor.lastrowid
         
-        print(f"Created feature '{feature_name}' with ID {feature_id}")
+        print(f"Created feature '{feature_name}' with ID {feature_id} for project {project_id}")
         return feature_id
         
     except Exception as e:
@@ -317,11 +611,12 @@ def _get_operation_type_by_name(conn: sqlite3.Connection, operation_name: str) -
         return None
 
 
-def create_events(feature_name: str, events: List[dict], db_path: str = "database.db") -> List[int]:
+def create_events(feature_name: str, project_id: int, events: List[dict], db_path: str = "database.db") -> List[int]:
     """Create multiple events for a single feature.
     
     Args:
         feature_name: Name of the feature
+        project_id: ID of the project
         events: List of event dictionaries with keys: operation_name, step_number, url, html_component, input_text
         db_path: Path to SQLite database file
         
@@ -345,14 +640,14 @@ def create_events(feature_name: str, events: List[dict], db_path: str = "databas
                 "input_text": None
             }
         ]
-        event_ids = create_events("Login Feature", events)
+        event_ids = create_events("Login Feature", 1, events)
     """
     conn = connect_to_sqlite_database(db_path)
     created_event_ids = []
     
     try:
         # Get feature ID (create if doesn't exist) - use existing connection
-        feature_id = _get_or_create_feature_id(conn, feature_name)
+        feature_id = _get_or_create_feature_id(conn, feature_name, project_id)
         print(f"Using feature ID {feature_id} for feature '{feature_name}'")
         
         # Insert all events
@@ -498,7 +793,8 @@ def get_all_events_with_details(db_path: str = "database.db") -> List[dict]:
             e.step_number,
             e.input_text,
             f.feature,
-            e.operation_id
+            e.operation_id,
+            f.project_id
         FROM events e
         JOIN features f ON e.feature_id = f.id
         ORDER BY e.step_number
@@ -517,6 +813,7 @@ def get_all_events_with_details(db_path: str = "database.db") -> List[dict]:
                 'step_number': row['step_number'],
                 'input_text': row['input_text'],
                 'feature': row['feature'],
+                'project_id': row['project_id'],
                 'operation': operation_type.operation if operation_type else 'unknown',
                 'description': operation_type.description if operation_type else 'Unknown operation'
             })
@@ -784,6 +1081,63 @@ def get_events_count(db_path: str = "database.db") -> int:
         
     except Exception as e:
         raise RuntimeError(f"Failed to count events in SQLite database: {e}")
+    
+    finally:
+        conn.close()
+
+
+def get_events_count_by_project(project_id: int, db_path: str = "database.db") -> int:
+    """Get the total number of events for a specific project.
+    
+    Args:
+        project_id: ID of the project
+        db_path: Path to SQLite database file
+        
+    Returns:
+        int: Number of events in the project
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        count_sql = """
+        SELECT COUNT(*) as count 
+        FROM events e
+        JOIN features f ON e.feature_id = f.id
+        WHERE f.project_id = ?
+        """
+        cursor = conn.execute(count_sql, (project_id,))
+        row = cursor.fetchone()
+        
+        return row['count'] if row else 0
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to count events for project: {e}")
+    
+    finally:
+        conn.close()
+
+
+def get_features_count_by_project(project_id: int, db_path: str = "database.db") -> int:
+    """Get the total number of features for a specific project.
+    
+    Args:
+        project_id: ID of the project
+        db_path: Path to SQLite database file
+        
+    Returns:
+        int: Number of features in the project
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        count_sql = "SELECT COUNT(*) as count FROM features WHERE project_id = ?"
+        cursor = conn.execute(count_sql, (project_id,))
+        row = cursor.fetchone()
+        
+        return row['count'] if row else 0
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to count features for project: {e}")
     
     finally:
         conn.close()

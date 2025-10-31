@@ -18,7 +18,7 @@ import asyncio
 from datetime import datetime
 from playwright.async_api import async_playwright
 from event_response_from_ai import WebAutomationAgent
-from model.database import get_events_by_feature_id, update_events, create_events
+from model.database import get_events_by_feature_id, update_events, create_events, get_feature_by_id
 
 
 class AutomationRunner:
@@ -36,7 +36,7 @@ class AutomationRunner:
         self.db_path = db_path
         self.ai_agent = WebAutomationAgent(self.api_key)
         
-    async def run_automation_workflow(self, target_url: str, prompt: str, dom_output_file: str = None):
+    async def run_automation_workflow(self, target_url: str, prompt: str, project_id: int, dom_output_file: str = None):
         """
         Run the complete automation workflow:
         1. Open browser and navigate to URL
@@ -47,6 +47,7 @@ class AutomationRunner:
         Args:
             target_url: URL to navigate to
             prompt: Hardcoded prompt for AI processing
+            project_id: ID of the project to associate events with
             dom_output_file: File to save extracted DOM content (defaults to url_datetime.txt)
         """
         # Generate default filename if not provided
@@ -108,7 +109,7 @@ class AutomationRunner:
             
             # Step 4: Save events to database
             print("\n💾 Step 4: Saving events to database...")
-            self._save_events_to_database(ai_result)
+            self._save_events_to_database(ai_result, project_id)
             print("✅ Events saved to database successfully")
             
             print("\n" + "=" * 80)
@@ -132,6 +133,7 @@ class AutomationRunner:
             target_url: URL to navigate to
             prompt: Hardcoded prompt for AI processing
             feature_id: ID of the feature to update
+            feature_name: Name of the feature
             dom_output_file: File to save extracted DOM content (defaults to url_datetime.txt)
         """
         # Generate default filename if not provided
@@ -216,12 +218,13 @@ class AutomationRunner:
             print(f"\n❌ UPDATE AUTOMATION WORKFLOW FAILED: {e}")
             return False
 
-    def _save_events_to_database(self, ai_result: dict):
+    def _save_events_to_database(self, ai_result: dict, project_id: int):
         """
         Save AI-generated events to the database using create_events for efficiency.
         
         Args:
             ai_result: Dictionary containing AI-generated events
+            project_id: ID of the project to associate events with
         """
         if "events" not in ai_result or not ai_result["events"]:
             print("⚠️ No events to save")
@@ -246,7 +249,7 @@ class AutomationRunner:
                 formatted_events.append(formatted_event)
             
             # Create all events at once using create_events
-            event_ids = create_events(feature_name, formatted_events, self.db_path)
+            event_ids = create_events(feature_name, project_id, formatted_events, self.db_path)
             print(f"✅ Successfully created {len(event_ids)} events for feature '{feature_name}'")
             
         except Exception as e:

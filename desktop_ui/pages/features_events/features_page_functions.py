@@ -10,17 +10,28 @@ from tkinter import messagebox
 from run import AutomationRunner
 
 
-def open_create_feature_dialog(root: tk.Tk, update_status, on_refresh):
-    """Open dialog to create a new feature and start automation workflow."""
+def open_create_feature_dialog(root: tk.Tk, update_status, on_refresh, current_project_id: int):
+    """Open dialog to create a new feature and start automation workflow.
+    
+    Args:
+        root: Root window
+        update_status: Status update callback
+        on_refresh: Refresh callback
+        current_project_id: Current project ID to associate the feature with
+    """
+    if not current_project_id:
+        messagebox.showerror("Error", "No project selected!")
+        return
+    
     input_window = tk.Toplevel(root)
     input_window.title("Create New Feature")
-    input_window.geometry("500x400")
+    input_window.geometry("500x350")
     input_window.configure(bg='white')
     input_window.transient(root)
     input_window.grab_set()
 
     x = root.winfo_x() + (root.winfo_width() // 2) - 250
-    y = root.winfo_y() + (root.winfo_height() // 2) - 200
+    y = root.winfo_y() + (root.winfo_height() // 2) - 175
     input_window.geometry(f"+{x}+{y}")
 
     main_frame = tk.Frame(input_window, bg='white')
@@ -47,19 +58,23 @@ def open_create_feature_dialog(root: tk.Tk, update_status, on_refresh):
     def _start_automation():
         url = url_entry.get().strip()
         prompt = prompt_text.get("1.0", tk.END).strip()
+        
         if not url or not prompt:
             messagebox.showerror("Error", "Please enter both URL and prompt!")
             return
 
         input_window.destroy()
         update_status("Starting automation workflow...", 'info')
+        
+        # Use the current_project_id directly
+        project_id = current_project_id
 
         def _run_automation():
             try:
                 automation_runner = AutomationRunner()
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                success = loop.run_until_complete(automation_runner.run_automation_workflow(url, prompt))
+                success = loop.run_until_complete(automation_runner.run_automation_workflow(url, prompt, project_id))
                 loop.close()
                 def _complete():
                     if success:
