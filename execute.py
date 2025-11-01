@@ -42,49 +42,93 @@ class EventExecutor:
             self.playwright = sync_playwright().start()
             self.browser = self.playwright.chromium.launch(headless=headless)
             self.page = self.browser.new_page()
-                  
-            print(f"Executing {len(events)} events...")
+            
+            print(f"Executing {len(events)} events (including verification)...")
             
             # Execute each event
             success_count = 0
+            verification_passed = None
+            
             for i, event in enumerate(events, 1):
+                operation_name = self.operation_mapper.get_operation_name_by_id(event.operation_id)
+                
                 print(f"\n--- Executing Event {i}/{len(events)} ---")
                 print(f"Step: {event.step_number}")
+                print(f"Operation: {operation_name}")
                 print(f"URL: {event.url}")
                 print(f"Component: {event.html_component}")
-                print(f"Input: {event.input_text}")
+                if event.input_text:
+                    print(f"Input: {event.input_text}")
                 
                 try:
                     self._execute_single_event(event)
                     success_count += 1
-                    print(f"✅ Event {i} executed successfully")
+                    
+                    # Track if this was verification event
+                    if operation_name == "verify_element":
+                        verification_passed = True
+                        print(f"✅ Event {i} (VERIFICATION) passed!")
+                    else:
+                        print(f"✅ Event {i} executed successfully")
+                        
                 except Exception as e:
                     print(f"❌ Event {i} failed: {e}")
-                    # Continue with next event instead of stopping
+                    
+                    # If verification fails, mark it
+                    if operation_name == "verify_element":
+                        verification_passed = False
+                    
+                    # Continue with next event
                     continue
                 
-                # Small delay between events
                 time.sleep(1)
             
-            print(f"\n🎯 Execution completed: {success_count}/{len(events)} events successful")
+            # Check results
+            all_passed = success_count == len(events)
             
-            # Keep browser open for a moment to see results
+            print(f"\n{'='*80}")
+            print(f"🎯 EXECUTION SUMMARY")
+            print(f"{'='*80}")
+            print(f"   Total Events: {len(events)}")
+            print(f"   Successful: {success_count}")
+            print(f"   Failed: {len(events) - success_count}")
+            
+            if verification_passed is not None:
+                if verification_passed:
+                    print(f"   ✅ VERIFICATION: PASSED")
+                else:
+                    print(f"   ❌ VERIFICATION: FAILED")
+            
+            if all_passed:
+                print(f"\n✅ ALL EVENTS INCLUDING VERIFICATION PASSED!")
+            else:
+                print(f"\n⚠️ SOME EVENTS FAILED")
+            print(f"{'='*80}")
+            
+            # Keep browser open briefly
             if not headless:
-                print("Browser will close in 3 seconds...")
-                time.sleep(3)
+                wait_time = 5 if verification_passed else 3
+                print(f"\nBrowser will close in {wait_time} seconds...")
+                time.sleep(wait_time)
             
-            return success_count == len(events)
+            return all_passed
             
         except Exception as e:
             print(f"❌ Error during execution: {e}")
             return False
         finally:
             self._cleanup()
+
+
     
     def _execute_single_event(self, event: Event):
         """Execute a single event."""
-        # Navigate to URL if specified
-        if event.url:
+        # Get operation name first
+        operation_name = self.operation_mapper.get_operation_name_by_id(event.operation_id)
+        print(f"Operation: {operation_name}")
+        
+        # Navigate to URL if specified (but NOT for verify_element)
+        if event.url and operation_name != "verify_element":
             current_url = self.page.url
             if not self._is_same_url(current_url, event.url):
                 print(f"Navigating to: {event.url}")
@@ -92,10 +136,8 @@ class EventExecutor:
                 self.page.wait_for_load_state("networkidle")
             else:
                 print(f"Already on {event.url}, skipping navigation")
-        
-        # Get operation name
-        operation_name = self.operation_mapper.get_operation_name_by_id(event.operation_id)
-        print(f"Operation: {operation_name}")
+        elif operation_name == "verify_element":
+            print(f"Verification on current page: {self.page.url}")
         
         # Execute based on operation type
         if operation_name == "click":
@@ -104,9 +146,10 @@ class EventExecutor:
             self._perform_input_text(event)
         elif operation_name == "scroll":
             self._perform_scroll(event)
-        else:
-            print(f"Unknown operation type: {operation_name}")
-            raise ValueError(f"Unknown operation type: {operation_name}")
+        elif operation_name == "verify_element":
+            self._perform_verify_element(event)
+
+
     
     def _is_same_url(self, current_url: str, target_url: str) -> bool:
         """Check if current URL matches target URL, ignoring protocol and trailing slashes."""
@@ -276,6 +319,41 @@ class EventExecutor:
             
         except Exception as e:
             raise Exception(f"Error scrolling: {e}")
+    def _perform_verify_element(self, event: Event):
+        """
+        Perform element verification operation.
+        Checks if specified element exists and is visible.
+        """
+        if not event.html_component:
+            raise ValueError("HTML component is required for verify_element operation")
+        
+        verification_desc = event.input_text or "Verification element"
+        print(f"Verifying element: {event.html_component}")
+        print(f"Description: {verification_desc}")
+        
+        try:
+            # Wait for page to stabilize
+            self.page.wait_for_load_state('networkidle')
+            time.sleep(1)
+            
+            # Try to locate the element
+            locator = self.page.locator(event.html_component)
+            
+            # Check if element exists and is visible
+            if locator.count() > 0:
+                if locator.first.is_visible():
+                    print(f"✅ Verification PASSED - Element found and visible!")
+                    return
+                else:
+                    raise Exception(f"Verification FAILED - Element exists but not visible")
+            else:
+                raise Exception(f"Verification FAILED - Element not found")
+                
+        except Exception as e:
+            print(f"❌ Verification error: {e}")
+            raise Exception(f"Element verification failed: {e}")
+
+
     
     def _cleanup(self):
         """Clean up browser resources."""
@@ -290,17 +368,15 @@ class EventExecutor:
 
 def execute_events(events: List[Event], headless: bool = False) -> bool:
     """
-    Convenience function to execute a list of events.
+    Convenience function to execute events.
     
-    Args:
-        events: List of Event objects to execute
-        headless: Whether to run browser in headless mode
-        
     Returns:
-        bool: True if all events executed successfully, False otherwise
+        bool: True if all events (including verification) passed
     """
     executor = EventExecutor()
     return executor.execute_events(events, headless)
+
+
 
 
 def main():

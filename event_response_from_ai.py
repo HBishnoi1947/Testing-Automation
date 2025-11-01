@@ -206,6 +206,8 @@ IMPORTANT RULES:
         except Exception as e:
             print(f"[!] Error generating events: {e}")
             return {"noOfEvents": 0, "events": [], "error": str(e)}
+    
+    
 
     def re_generate_events(self, html_file_path: str, url: str, prompt: str, feature_id: int, feature_name: str, existing_events: List, db_path: str = "database.db") -> Dict:
         """
@@ -317,6 +319,154 @@ IMPORTANT RULES:
         except Exception as e:
             print(f"[!] Error re-generating events: {e}")
             return {"noOfEvents": 0, "events": [], "error": str(e)}
+    
+    def validate_execution_success(self, 
+                                initial_html_path: str, 
+                                final_html_path: str, 
+                                feature_name: str,
+                                expected_outcome: str = None) -> Dict:
+        """
+        Validate if the executed events were successful by comparing initial and final DOM.
+        Also identifies a success indicator element for future verification.
+        
+        Args:
+            initial_html_path: Path to HTML before event execution
+            final_html_path: Path to HTML after event execution
+            feature_name: Name of the feature being validated
+            expected_outcome: Optional description of expected outcome
+            
+        Returns:
+            Dict with keys: 
+            - 'success' (bool)
+            - 'confidence' (float)
+            - 'reason' (str)
+            - 'suggestions' (str)
+            - 'success_indicator' (str): CSS selector for success verification element
+        """
+        try:
+            # Load both HTML files
+            initial_html = self.load_html(initial_html_path)
+            final_html = self.load_html(final_html_path)
+            
+            print(f"[✓] Loaded initial HTML: {len(initial_html)} characters")
+            print(f"[✓] Loaded final HTML: {len(final_html)} characters")
+            
+            # Extract elements from both DOMs
+            initial_elements = self.extract_interactive_elements(initial_html)
+            final_elements = self.extract_interactive_elements(final_html)
+            
+            # Format for AI analysis
+            initial_formatted = self.format_elements_for_prompt(initial_elements)
+            final_formatted = self.format_elements_for_prompt(final_elements)
+            
+            # Build validation prompt
+            outcome_text = f"\nExpected Outcome: {expected_outcome}" if expected_outcome else ""
+            
+            validation_prompt = f"""
+            You are a web automation validation expert. Analyze the DOM changes before and after event execution to determine if the operation was successful.
+
+            FEATURE BEING VALIDATED: {feature_name}{outcome_text}
+
+            INITIAL DOM (BEFORE EXECUTION):
+            {initial_formatted[:3000]}
+
+            FINAL DOM (AFTER EXECUTION):
+            {final_formatted[:3000]}
+
+            TASK: 
+            1. Determine if the automation was successful by analyzing DOM changes
+            2. IDENTIFY a reliable VERIFICATION ELEMENT that proves success
+
+            VERIFICATION ELEMENT EXAMPLES:
+            - For login: logout button, user profile menu, dashboard header, welcome message, account dropdown
+            - For signup: verification message, welcome email notice, account created banner, confirmation text
+            - For forms: success message, confirmation text, thank you page elements, submitted status
+            - For checkout: order confirmation, payment success banner, order number display
+            - For search: results container, search results count, filtered items
+            - Use your intelligence to find the MOST RELIABLE and SPECIFIC element
+
+            IMPORTANT: The verification element MUST be:
+            - A CSS selector (e.g., "button#logout", ".user-profile", "[data-testid='dashboard']", "a.logout-link")
+            - Visible in the FINAL DOM after successful execution
+            - Unique and reliable for verification
+            - NOT generic (avoid plain "div", "span", "button" without specific identifiers)
+            - Should use ID, class, attribute, or combination for precision
+
+            Return your analysis in this EXACT JSON format:
+            {{
+            "success": true/false,
+            "reason": "Detailed explanation of why success/failure was determined based on DOM changes",
+            "suggestions": "Suggestions for fixing issues if failed, or empty string if successful",
+            "verification_selector": "CSS selector of the element that proves success (e.g., 'button.logout-btn', '#user-dashboard', 'a[href*=\"logout\"]', '.welcome-message')",
+            "verification_description": "Brief description of what this element represents (e.g., 'Logout button visible in header', 'User dashboard container')"
+            }}
+
+            CRITICAL RULES:
+            1. success should be true ONLY if clear success indicators are found in the final DOM
+            2. verification_selector MUST be a valid CSS selector found in the FINAL DOM
+            3. If success is false, verification_selector should be empty string ""
+            4. verification_selector should be as specific as possible (use IDs, unique classes, or data attributes)
+            5. Avoid generic selectors - prefer "#logout-btn" over just "button"
+            6. Return ONLY valid JSON, no explanation outside JSON
+            7. The verification_selector will be used to automatically verify success in future runs
+            """
+
+
+            
+            response = self.model.generate_content(validation_prompt)
+            response_text = response.text.strip()
+            
+            # Clean JSON response
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]
+            if response_text.startswith('```'):
+                response_text = response_text[3:]
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]
+            response_text = response_text.strip()
+            
+            result = json.loads(response_text)
+
+            # Validate result structure (removed confidence, updated field names)
+            required_keys = ["success", "reason", "verification_selector"]
+            missing_keys = [key for key in required_keys if key not in result]
+
+            if missing_keys:
+                print(f"[!] Warning: Missing keys in validation response: {missing_keys}")
+                # Add missing keys with default values
+                if "verification_selector" not in result:
+                    result["verification_selector"] = ""
+                if "verification_description" not in result:
+                    result["verification_description"] = ""
+                if "suggestions" not in result:
+                    result["suggestions"] = ""
+
+            # Log the verification selector
+            if result.get('success') and result.get('verification_selector'):
+                print(f"[✓] Verification selector identified: {result['verification_selector']}")
+                print(f"    Description: {result.get('verification_description', 'N/A')}")
+
+            return result
+
+            
+        except Exception as e:
+            print(f"[!] Error during validation: {e}")
+            import traceback
+            traceback.print_exc()  # Print full traceback for debugging
+            
+            return {
+                "success": False,
+                "reason": f"Validation error: {str(e)}",
+                "suggestions": "Unable to validate. Please check manually.",
+                "verification_selector": "",
+                "verification_description": ""
+            }
+
+
+
+
+
+    
 
 # --------------------------- TEST SECTION ---------------------------
 if __name__ == "__main__":

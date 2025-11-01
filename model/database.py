@@ -4,7 +4,7 @@ Database operations for the testing automation system.
 
 import sqlite3
 import os
-from typing import Optional, List
+from typing import Optional, List, Dict
 from .feature import Feature
 from .operation_type import OperationType
 from .event import Event
@@ -29,12 +29,15 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     conn.row_factory = sqlite3.Row  # Enable column access by name
     
     # Create features table
+    # Create features table WITH success_indicator column
     create_features_table = """
-    CREATE TABLE IF NOT EXISTS features (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        feature TEXT NOT NULL
-    )
-    """
+        CREATE TABLE IF NOT EXISTS features (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            feature TEXT NOT NULL
+ 
+        )
+        """
+
     
     # Create operation_types table
     create_operation_types_table = """
@@ -80,20 +83,39 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     )
     """
     
+    # Create execution_logs table
+    create_execution_logs_table_sql = """
+    CREATE TABLE IF NOT EXISTS execution_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        feature_id INTEGER NOT NULL,
+        attempt_number INTEGER NOT NULL,
+        execution_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        validation_success BOOLEAN,
+        validation_confidence REAL,
+        validation_reason TEXT,
+        validation_suggestions TEXT,
+        final_dom_path TEXT,
+        FOREIGN KEY (feature_id) REFERENCES features(id)
+    )
+    """
+    
     # Execute table creation
     conn.execute(create_features_table)
     conn.execute(create_operation_types_table)
     conn.execute(create_events_table)
     conn.execute(create_testing_module_table)
     conn.execute(create_map_testing_module_table)
+    conn.execute(create_execution_logs_table_sql)
     
     # Insert predefined operation types if they don't exist
     insert_operation_types = """
     INSERT OR IGNORE INTO operation_types (operation, description) VALUES
     ('click', 'Click on an element'),
     ('input_text', 'Input text into an element'),
-    ('scroll', 'Scroll the page or element')
+    ('scroll', 'Scroll the page or element'),
+    ('verify_element', 'Verify element exists on page')
     """
+
     
     conn.execute(insert_operation_types)
     conn.commit()
@@ -1039,5 +1061,148 @@ def delete_testing_module(module_id: int, db_path: str = "database.db") -> None:
         conn.rollback()
         raise RuntimeError(f"Failed to delete testing module: {e}")
     
+    finally:
+        conn.close()
+
+
+# Execution Logs Functions
+
+def log_execution_attempt(feature_id: int,
+                         attempt_number: int,
+                         validation_result: Optional[Dict] = None,
+                         final_dom_path: Optional[str] = None,
+                         db_path: str = "database.db") -> int:
+    """
+    Log an execution attempt with validation results.
+    
+    Args:
+        feature_id: ID of the feature executed
+        attempt_number: Attempt number (1, 2, 3, etc.)
+        validation_result: Dict with validation results
+        final_dom_path: Path to final DOM file
+        db_path: Path to SQLite database file
+        
+    Returns:
+        int: ID of the created log entry
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        validation_success = None
+        validation_confidence = None
+        validation_reason = None
+        validation_suggestions = None
+        
+        if validation_result:
+            validation_success = validation_result.get('success')
+            validation_confidence = validation_result.get('confidence')
+            validation_reason = validation_result.get('reason')
+            validation_suggestions = validation_result.get('suggestions')
+        
+        insert_sql = """
+        INSERT INTO execution_logs 
+        (feature_id, attempt_number, validation_success, validation_confidence, 
+         validation_reason, validation_suggestions, final_dom_path)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """
+        cursor = conn.execute(insert_sql, (
+            feature_id, attempt_number, validation_success, validation_confidence,
+            validation_reason, validation_suggestions, final_dom_path
+        ))
+        log_id = cursor.lastrowid
+        conn.commit()
+        print(f"✅ Logged execution attempt {attempt_number} for feature_id {feature_id}")
+        return log_id
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to log execution attempt: {e}")
+    finally:
+        conn.close()
+
+
+def get_execution_logs(feature_id: int, db_path: str = "database.db") -> List[Dict]:
+    """
+    Get all execution logs for a specific feature.
+    
+    Args:
+        feature_id: ID of the feature
+        db_path: Path to SQLite database file
+        
+    Returns:
+        List[Dict]: List of execution log dictionaries
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        select_sql = """
+        SELECT * FROM execution_logs 
+        WHERE feature_id = ? 
+        ORDER BY execution_timestamp DESC
+        """
+        cursor = conn.execute(select_sql, (feature_id,))
+        rows = cursor.fetchall()
+        
+        logs = []
+        for row in rows:
+            logs.append({
+                'id': row['id'],
+                'feature_id': row['feature_id'],
+                'attempt_number': row['attempt_number'],
+                'execution_timestamp': row['execution_timestamp'],
+                'validation_success': row['validation_success'],
+                'validation_confidence': row['validation_confidence'],
+                'validation_reason': row['validation_reason'],
+                'validation_suggestions': row['validation_suggestions'],
+                'final_dom_path': row['final_dom_path']
+            })
+        return logs
+    except Exception as e:
+        raise RuntimeError(f"Failed to get execution logs: {e}")
+    finally:
+        conn.close()
+
+def add_single_event_to_feature(feature_id: int, event_dict: dict, db_path: str = "database.db") -> int:
+    """
+    Add a single event to an existing feature.
+    
+    Args:
+        feature_id: ID of the existing feature
+        event_dict: Dict with keys: operation_name, step_number, url, html_component, input_text
+        db_path: Path to database
+        
+    Returns:
+        int: ID of created event
+        
+    Raises:
+        RuntimeError: If event creation fails
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        # Get operation type
+        operation_type = get_operation_type_by_name(event_dict['operation_name'], db_path)
+        
+        # Insert event
+        insert_sql = """
+        INSERT INTO events (feature_id, url, html_component, operation_id, input_text, step_number)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """
+        
+        cursor = conn.execute(
+            insert_sql,
+            (
+                feature_id,
+                event_dict.get('url'),
+                event_dict.get('html_component'),
+                operation_type.id,
+                event_dict.get('input_text'),
+                event_dict.get('step_number', 1)
+            )
+        )
+        conn.commit()
+        event_id = cursor.lastrowid
+        print(f"Created event with ID {event_id} for feature_id {feature_id}")
+        return event_id
+        
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to add event to feature: {e}")
     finally:
         conn.close()

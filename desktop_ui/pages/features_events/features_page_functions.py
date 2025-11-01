@@ -59,20 +59,57 @@ def open_create_feature_dialog(root: tk.Tk, update_status, on_refresh):
                 automation_runner = AutomationRunner()
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                success = loop.run_until_complete(automation_runner.run_automation_workflow(url, prompt))
+                result = loop.run_until_complete(
+                    automation_runner.run_automation_workflow(url, prompt)
+                )
                 loop.close()
+                
+                # Capture result before callback
+                workflow_result = result
+                
                 def _complete():
-                    if success:
-                        update_status("Automation completed successfully!", 'success')
-                        messagebox.showinfo("Success", "Automation workflow completed successfully!")
-                        if on_refresh:
-                            on_refresh()
+                    if workflow_result.get('success'):
+                        validation = workflow_result.get('validation', {})
+        
+                        reason = validation.get('reason', 'No details')
+                        
+                        update_status(f"✅ Feature '{workflow_result['feature_name']}' created and validated!", 'success')
+                        
+                        messagebox.showinfo(
+                            "✅ Validation Successful",
+                            f"Feature: {workflow_result['feature_name']}\n\n"
+                      
+                            f"Result: {reason}"
+                        )
                     else:
-                        update_status("Automation failed", 'error')
-                        messagebox.showerror("Error", "Automation workflow failed!")
+                        validation = workflow_result.get('validation', {})
+                        reason = validation.get('reason', workflow_result.get('error', 'Unknown error'))
+                        suggestions = validation.get('suggestions', 'No suggestions available')
+                        
+                        update_status(f"❌ Validation failed", 'error')
+                        
+                        messagebox.showerror(
+                            "❌ Validation Failed",
+                            f"Feature creation completed but validation failed.\n\n"
+                            f"Reason: {reason}\n\n"
+                            f"Suggestions: {suggestions}"
+                        )
+                    
+                    if on_refresh:
+                        on_refresh()
+                
                 root.after(0, _complete)
+                
             except Exception as e:
-                root.after(0, lambda: _automation_error(update_status, str(e)))
+                error_msg = str(e)
+                
+                def _show_error():
+                    update_status(f"❌ Error: {error_msg}", 'error')
+                    messagebox.showerror("Error", f"Automation failed:\n\n{error_msg}")
+                
+                root.after(0, _show_error)
+
+
 
         threading.Thread(target=_run_automation, daemon=True).start()
 
