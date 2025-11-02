@@ -10,9 +10,8 @@ from model.database import (
     add_feature_to_testing_module,
     remove_from_testing_module, clear_testing_module_flow, delete_testing_module
 )
-from model.database import get_all_features, get_features_by_project, get_events_by_feature_id
+from model.database import get_all_features, get_features_by_project
 from model.feature import Feature
-from model.event import Event
 
 
 class TestingModulePage:
@@ -37,7 +36,6 @@ class TestingModulePage:
         self.current_module = None
         self.module_flow = []  # Current module's flow
         self.features = []  # Available features
-        self.events = []  # Available events
         
         # Create UI components
         self.create_widgets()
@@ -180,7 +178,7 @@ class TestingModulePage:
         available_header.pack_propagate(False)
         
         available_title = tk.Label(available_header,
-                                  text="📋 Available Items",
+                                  text="📋 Available Features",
                                   font=('Segoe UI', 14, 'bold'),
                                   fg='white',
                                   bg=self.colors['primary'])
@@ -190,16 +188,8 @@ class TestingModulePage:
         available_content = tk.Frame(available_card, bg=self.colors['surface'])
         available_content.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
         
-        # Tab notebook (features only)
-        self.available_notebook = ttk.Notebook(available_content)
-        self.available_notebook.pack(fill=tk.BOTH, expand=True)
-        
-        # Features tab
-        features_frame = tk.Frame(self.available_notebook, bg=self.colors['surface'])
-        self.available_notebook.add(features_frame, text="Features")
-        
         # Features listbox
-        features_listbox_frame = tk.Frame(features_frame, bg=self.colors['surface'])
+        features_listbox_frame = tk.Frame(available_content, bg=self.colors['surface'])
         features_listbox_frame.pack(fill=tk.BOTH, expand=True)
         
         self.features_listbox = tk.Listbox(features_listbox_frame,
@@ -220,7 +210,7 @@ class TestingModulePage:
         self.features_listbox.configure(yscrollcommand=features_scrollbar.set)
         
         # Add feature button
-        add_feature_button = tk.Button(features_frame,
+        add_feature_button = tk.Button(available_content,
                                      text="➕ Add Feature to Flow",
                                      font=('Segoe UI', 9, 'bold'),
                                      bg=self.colors['success'],
@@ -232,8 +222,6 @@ class TestingModulePage:
                                      cursor='hand2',
                                      command=self.add_feature_to_flow)
         add_feature_button.pack(fill=tk.X, pady=(10, 0))
-        
-        # Events tab removed for feature-only flows
     
     def create_flow_panel(self, parent):
         """Create the module flow panel."""
@@ -264,7 +252,7 @@ class TestingModulePage:
         tree_frame = tk.Frame(tree_container, bg=self.colors['surface'])
         tree_frame.pack(fill=tk.BOTH, expand=True)
         
-        columns = ('Step', 'Type', 'Name', 'Operation', 'URL')
+        columns = ('Step', 'Name')
         self.flow_tree = ttk.Treeview(tree_frame,
                                     columns=columns,
                                     show='headings',
@@ -273,17 +261,11 @@ class TestingModulePage:
         
         # Configure column headings
         self.flow_tree.heading('Step', text='Step', anchor=tk.CENTER)
-        self.flow_tree.heading('Type', text='Type', anchor=tk.CENTER)
-        self.flow_tree.heading('Name', text='Name', anchor=tk.W)
-        self.flow_tree.heading('Operation', text='Operation', anchor=tk.W)
-        self.flow_tree.heading('URL', text='URL', anchor=tk.W)
+        self.flow_tree.heading('Name', text='Feature Name', anchor=tk.W)
         
         # Configure column widths
         self.flow_tree.column('Step', width=60, minwidth=60, anchor=tk.CENTER)
-        self.flow_tree.column('Type', width=80, minwidth=80, anchor=tk.CENTER)
-        self.flow_tree.column('Name', width=150, minwidth=120, anchor=tk.W)
-        self.flow_tree.column('Operation', width=120, minwidth=100, anchor=tk.W)
-        self.flow_tree.column('URL', width=200, minwidth=150, anchor=tk.W)
+        self.flow_tree.column('Name', width=400, minwidth=200, anchor=tk.W)
         
         self.flow_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.flow_tree.bind('<<TreeviewSelect>>', self.on_flow_item_select)
@@ -393,13 +375,10 @@ class TestingModulePage:
         
         # Add flow items
         for item in self.module_flow:
-            # Feature-only: type always Feature; no operation/URL
+            # Feature-only: only show step and feature name
             self.flow_tree.insert('', 'end', values=(
                 item['step_number'],
-                'Feature',
-                item['feature_name'],
-                '',
-                ''
+                item['feature_name']
             ))
         
         # Update flow count and button states
