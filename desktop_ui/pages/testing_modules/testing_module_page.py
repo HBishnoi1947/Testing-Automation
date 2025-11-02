@@ -15,6 +15,7 @@ from model.feature import Feature
 from model.event import Event
 
 
+
 class TestingModulePage:
     """Testing Module component for the desktop UI."""
     
@@ -339,6 +340,23 @@ class TestingModulePage:
                                         command=self.run_module,
                                         state=tk.DISABLED)
         self.run_module_button.pack(side=tk.RIGHT, padx=(0, 5), pady=5)
+
+    def run_module(self):
+        """Execute all features in the selected module and generate report."""
+        if not self.selected_module:
+            messagebox.showwarning("No Selection", "Please select a module to run!")
+            return
+        
+        from testing_module_page_functions import run_testing_module
+        
+        # Pass refresh callback to update UI after execution
+        run_testing_module(
+            self.root,
+            self.update_status,
+            self.selected_module,
+            on_complete=self.load_modules
+        )
+
     
     def load_data(self):
         """Load all data from database."""
