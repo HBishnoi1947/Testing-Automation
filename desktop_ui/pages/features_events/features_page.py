@@ -5,14 +5,14 @@ Features Component - Handles the features panel functionality.
 import tkinter as tk
 from tkinter import messagebox
 from typing import List, Optional
-from model.database import get_all_features, delete_feature_by_feature_id
+from model.database import get_all_features, get_features_by_project, delete_feature_by_feature_id
 from model.feature import Feature
 
 
 class FeaturesPage:
     """Features component for the desktop UI."""
     
-    def __init__(self, parent_frame, colors, on_feature_select_callback, on_create_feature_callback, on_refresh_callback):
+    def __init__(self, parent_frame, colors, on_feature_select_callback, on_create_feature_callback, on_refresh_callback, project_id: Optional[int] = None):
         """Initialize the features component.
         
         Args:
@@ -21,12 +21,14 @@ class FeaturesPage:
             on_feature_select_callback: Callback function when feature is selected
             on_create_feature_callback: Callback function when create feature is clicked
             on_refresh_callback: Callback function when refresh is clicked
+            project_id: Optional project ID to filter features by project
         """
         self.parent_frame = parent_frame
         self.colors = colors
         self.on_feature_select_callback = on_feature_select_callback
         self.on_create_feature_callback = on_create_feature_callback
         self.on_refresh_callback = on_refresh_callback
+        self.project_id = project_id
         
         # Data
         self.features = []  # List of Feature objects
@@ -138,8 +140,11 @@ class FeaturesPage:
     def load_data(self):
         """Load features from database."""
         try:
-            # Load features as objects
-            self.features = get_all_features()
+            # Load features as objects - filter by project if project_id is provided
+            if self.project_id:
+                self.features = get_features_by_project(self.project_id)
+            else:
+                self.features = get_all_features()
             self.update_features_display()
             return True
         except Exception as e:
