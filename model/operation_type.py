@@ -64,27 +64,34 @@ class OperationTypeMapper:
         finally:
             conn.close()
     
-    def get_operation_by_id(self, operation_id: int) -> Optional[OperationType]:
-        """Get operation type by ID."""
-        if not self._loaded:
-            self.load_operation_types()
-        
-        return self._operation_types.get(operation_id)
-    
     def get_operation_name_by_id(self, operation_id: int) -> Optional[str]:
         """Get operation name by ID."""
         if not self._loaded:
             self.load_operation_types()
-        
         operation_type = self._operation_types.get(operation_id)
         return operation_type.operation if operation_type else None
-    
+
+    def get_operation_id_by_name(self, operation_name: str) -> Optional[int]:
+        """
+        Get operation ID by operation name.
+        
+        Args:
+            operation_name: Name of the operation (e.g., 'click', 'input_text', 'verify_element')
+            
+        Returns:
+            Optional[int]: Operation ID if found, None otherwise
+        """
+        if not self._loaded:
+            self.load_operation_types()
+        
+        return self._operation_name_to_id.get(operation_name)
+
     def get_all_operation_types(self) -> Dict[int, OperationType]:
         """Get all operation types."""
         if not self._loaded:
             self.load_operation_types()
-        
         return self._operation_types.copy()
+
     
     def refresh(self) -> None:
         """Refresh the operation types from database."""

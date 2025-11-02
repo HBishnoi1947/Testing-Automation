@@ -7,6 +7,7 @@
 # Additional dependencies from main project
 playwright>=1.40.0
 google-generativeai>=0.3.0
+python-dotenv>=1.0.1
 
 # Optional: For enhanced UI styling and theming
 # ttkthemes>=3.2.2  # Uncomment if you want additional themed widgets
