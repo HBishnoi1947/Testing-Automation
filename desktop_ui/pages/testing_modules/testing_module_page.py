@@ -8,7 +8,8 @@ from typing import List, Optional, Dict, Any
 from model.database import (
     get_all_testing_modules, create_testing_module, get_testing_module_flow,
     add_feature_to_testing_module,
-    remove_from_testing_module, clear_testing_module_flow, delete_testing_module
+    remove_from_testing_module, clear_testing_module_flow, delete_testing_module,
+    reorder_testing_module_step
 )
 from model.database import get_all_features, get_features_by_project
 from model.feature import Feature
@@ -291,10 +292,38 @@ class TestingModulePage:
                                        bg=self.colors['surface'])
         self.flow_count_label.pack(side=tk.LEFT, padx=(0, 10))
         
-        # Right side - Action buttons (increased width for full text)
-        action_buttons_frame = tk.Frame(flow_bottom_frame, bg=self.colors['surface'], width=280)
+        # Right side - Action buttons (increased width for all buttons)
+        action_buttons_frame = tk.Frame(flow_bottom_frame, bg=self.colors['surface'], width=380)
         action_buttons_frame.pack(side=tk.RIGHT, fill=tk.Y)
         action_buttons_frame.pack_propagate(False)  # Prevent frame from shrinking
+        
+        self.move_up_button = tk.Button(action_buttons_frame,
+                                       text="⬆️ Up",
+                                       font=('Segoe UI', 9, 'bold'),
+                                       bg=self.colors['secondary'],
+                                       fg='white',
+                                       relief=tk.RAISED,
+                                       bd=1,
+                                       padx=12,
+                                       pady=6,
+                                       cursor='hand2',
+                                       command=self.move_item_up,
+                                       state=tk.DISABLED)
+        self.move_up_button.pack(side=tk.RIGHT, padx=(0, 5), pady=5)
+        
+        self.move_down_button = tk.Button(action_buttons_frame,
+                                         text="⬇️ Down",
+                                         font=('Segoe UI', 9, 'bold'),
+                                         bg=self.colors['secondary'],
+                                         fg='white',
+                                         relief=tk.RAISED,
+                                         bd=1,
+                                         padx=12,
+                                         pady=6,
+                                         cursor='hand2',
+                                         command=self.move_item_down,
+                                         state=tk.DISABLED)
+        self.move_down_button.pack(side=tk.RIGHT, padx=(0, 8), pady=5)
         
         self.remove_item_button = tk.Button(action_buttons_frame,
                                           text="➖ Remove",
@@ -391,10 +420,14 @@ class TestingModulePage:
             else:
                 self.run_module_button.config(state=tk.DISABLED, text="▶️ Run Module")
                 self.remove_item_button.config(state=tk.DISABLED)
+                self.move_up_button.config(state=tk.DISABLED)
+                self.move_down_button.config(state=tk.DISABLED)
         else:
             count_text = "Select a module to view flow"
             self.run_module_button.config(state=tk.DISABLED, text="▶️ Run Module")
             self.remove_item_button.config(state=tk.DISABLED)
+            self.move_up_button.config(state=tk.DISABLED)
+            self.move_down_button.config(state=tk.DISABLED)
         self.flow_count_label.config(text=count_text)
     
     def on_flow_item_select(self, event):
@@ -402,8 +435,17 @@ class TestingModulePage:
         selection = self.flow_tree.selection()
         if selection and self.current_module and len(self.module_flow) > 0:
             self.remove_item_button.config(state=tk.NORMAL)
+            # Enable/disable up/down buttons based on position
+            item_id = selection[0]
+            children = self.flow_tree.get_children()
+            current_index = children.index(item_id)
+            
+            self.move_up_button.config(state=tk.NORMAL if current_index > 0 else tk.DISABLED)
+            self.move_down_button.config(state=tk.NORMAL if current_index < len(children) - 1 else tk.DISABLED)
         else:
             self.remove_item_button.config(state=tk.DISABLED)
+            self.move_up_button.config(state=tk.DISABLED)
+            self.move_down_button.config(state=tk.DISABLED)
     
     def on_module_select(self, event):
         """Handle module selection."""
@@ -493,6 +535,90 @@ class TestingModulePage:
             messagebox.showerror("Error", f"Failed to add feature to flow: {e}")
     
     # add_event_to_flow removed for feature-only flows
+    
+    def move_item_up(self):
+        """Move selected item up in the sequence."""
+        selection = self.flow_tree.selection()
+        if not selection:
+            messagebox.showwarning("Warning", "Please select an item to move!")
+            return
+        
+        try:
+            item_id = selection[0]
+            item = self.flow_tree.item(item_id)
+            current_step = int(item['values'][0])
+            
+            if current_step <= 1:
+                messagebox.showinfo("Info", "Item is already at the top!")
+                return
+            
+            # Find the mapping ID for the current item
+            mapping_id = None
+            for flow_item in self.module_flow:
+                if flow_item['step_number'] == current_step:
+                    mapping_id = flow_item['mapping_id']
+                    break
+            
+            if not mapping_id:
+                messagebox.showerror("Error", "Could not find item to move!")
+                return
+            
+            # Reorder in database
+            reorder_testing_module_step(mapping_id, current_step - 1)
+            
+            # Refresh flow
+            self.load_module_flow()
+            
+            # Reselect the moved item (it's now at the new position)
+            children = self.flow_tree.get_children()
+            if current_step - 2 >= 0:  # new index is current_step - 2 (0-based)
+                self.flow_tree.selection_set(children[current_step - 2])
+                self.flow_tree.focus(children[current_step - 2])
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to move item up: {e}")
+    
+    def move_item_down(self):
+        """Move selected item down in the sequence."""
+        selection = self.flow_tree.selection()
+        if not selection:
+            messagebox.showwarning("Warning", "Please select an item to move!")
+            return
+        
+        try:
+            item_id = selection[0]
+            item = self.flow_tree.item(item_id)
+            current_step = int(item['values'][0])
+            
+            if current_step >= len(self.module_flow):
+                messagebox.showinfo("Info", "Item is already at the bottom!")
+                return
+            
+            # Find the mapping ID for the current item
+            mapping_id = None
+            for flow_item in self.module_flow:
+                if flow_item['step_number'] == current_step:
+                    mapping_id = flow_item['mapping_id']
+                    break
+            
+            if not mapping_id:
+                messagebox.showerror("Error", "Could not find item to move!")
+                return
+            
+            # Reorder in database
+            reorder_testing_module_step(mapping_id, current_step + 1)
+            
+            # Refresh flow
+            self.load_module_flow()
+            
+            # Reselect the moved item (it's now at the new position)
+            children = self.flow_tree.get_children()
+            if current_step < len(children):  # new index is current_step (0-based, since step is 1-based)
+                self.flow_tree.selection_set(children[current_step])
+                self.flow_tree.focus(children[current_step])
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to move item down: {e}")
     
     def remove_selected_item(self):
         """Remove selected item from the module flow."""

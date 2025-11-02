@@ -1364,6 +1364,75 @@ def clear_testing_module_flow(module_id: int, db_path: str = "database.db") -> N
         conn.close()
 
 
+def reorder_testing_module_step(mapping_id: int, new_step_number: int, db_path: str = "database.db") -> None:
+    """Reorder an item in a testing module by updating its step number.
+    Swaps step numbers with the item at the target position.
+    
+    Args:
+        mapping_id: ID of the mapping to move
+        new_step_number: New step number position (1-based)
+        db_path: Path to SQLite database file
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        # Get current step and module info
+        select_sql = "SELECT testing_module_id, step_number FROM map_testing_modules WHERE id = ?"
+        cursor = conn.execute(select_sql, (mapping_id,))
+        row = cursor.fetchone()
+        
+        if not row:
+            raise ValueError(f"Mapping with ID {mapping_id} not found")
+        
+        module_id = row['testing_module_id']
+        old_step = row['step_number']
+        
+        # Validate new step number
+        count_sql = "SELECT COUNT(*) as count FROM map_testing_modules WHERE testing_module_id = ?"
+        cursor = conn.execute(count_sql, (module_id,))
+        total_items = cursor.fetchone()['count']
+        
+        if new_step_number < 1 or new_step_number > total_items:
+            raise ValueError(f"New step number {new_step_number} is out of range (1-{total_items})")
+        
+        if old_step == new_step_number:
+            return  # No change needed
+        
+        # Get the mapping ID at the target position
+        target_select_sql = "SELECT id FROM map_testing_modules WHERE testing_module_id = ? AND step_number = ?"
+        cursor = conn.execute(target_select_sql, (module_id, new_step_number))
+        target_row = cursor.fetchone()
+        
+        if not target_row:
+            raise ValueError(f"No item found at step {new_step_number}")
+        
+        target_mapping_id = target_row['id']
+        
+        # Swap step numbers using a temporary value
+        # First, set the moving item to a temporary negative value
+        temp_step = -(abs(old_step) + abs(new_step_number) + 1000)
+        update1_sql = "UPDATE map_testing_modules SET step_number = ? WHERE id = ?"
+        conn.execute(update1_sql, (temp_step, mapping_id))
+        
+        # Set target item to old step
+        update2_sql = "UPDATE map_testing_modules SET step_number = ? WHERE id = ?"
+        conn.execute(update2_sql, (old_step, target_mapping_id))
+        
+        # Set moving item to new step
+        update3_sql = "UPDATE map_testing_modules SET step_number = ? WHERE id = ?"
+        conn.execute(update3_sql, (new_step_number, mapping_id))
+        
+        conn.commit()
+        print(f"Reordered mapping {mapping_id} from step {old_step} to step {new_step_number}")
+        
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to reorder testing module step: {e}")
+    
+    finally:
+        conn.close()
+
+
 def delete_testing_module(module_id: int, db_path: str = "database.db") -> None:
     """Delete a testing module and all its mappings.
     
