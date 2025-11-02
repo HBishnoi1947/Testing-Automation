@@ -19,6 +19,7 @@ from datetime import datetime
 from playwright.async_api import async_playwright
 from event_response_from_ai import WebAutomationAgent
 from model.database import get_events_by_feature_id, update_events, create_events
+from execute import EventExecutor 
 
 
 class AutomationRunner:
@@ -35,6 +36,7 @@ class AutomationRunner:
             raise RuntimeError("GEMINI_API_KEY not set. Create a .env with GEMINI_API_KEY=<your_key>")
         self.db_path = db_path
         self.ai_agent = WebAutomationAgent(self.api_key)
+        self.event_executor = EventExecutor()
 
     async def run_automation_workflow(self, target_url: str, prompt: str, dom_output_file: str = None):
         """
@@ -146,7 +148,7 @@ class AutomationRunner:
             print("\n⚡ Executing events...")
             final_dom_path = dom_output_file.replace('.txt', '_final.txt')
             
-            execution_result = await self._execute_and_capture_dom(
+            execution_result = await self.event_executor._execute_and_capture_dom(
                 events, 
                 final_dom_path
             )
@@ -234,81 +236,6 @@ class AutomationRunner:
             traceback.print_exc()
             return {'success': False, 'error': str(e)}
 
-
-    async def _execute_and_capture_dom(self, events, final_dom_path: str):
-        """
-        Execute events and capture final DOM state.
-        
-        Args:
-            events: List of events to execute
-            final_dom_path: Path to save final DOM
-            
-        Returns:
-            dict: {'success': bool, 'error': str (optional)}
-        """
-        try:
-            from playwright.async_api import async_playwright
-            
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=False)
-                page = await browser.new_page()
-                
-                # Navigate to first event URL
-                if events and events[0].url:
-                    await page.goto(events[0].url)
-                    await page.wait_for_load_state('networkidle')
-                
-                # Execute each event
-                for i, event in enumerate(events, 1):
-                    print(f"  Executing event {i}/{len(events)}: {event.operation_id}")
-                    
-                    try:
-                        # Get operation name
-                        from model.operation_type import OperationTypeMapper
-                        mapper = OperationTypeMapper(self.db_path)
-                        mapper.load_operation_types()
-                        operation_name = mapper.get_operation_name_by_id(event.operation_id)
-                        
-                        # Navigate if URL changed
-                        current_url = page.url
-                        if event.url and event.url != current_url:
-                            await page.goto(event.url)
-                            await page.wait_for_load_state('networkidle')
-                        
-                        # Execute based on operation type
-                        if operation_name == "click":
-                            locator = page.locator(event.html_component)
-                            await locator.click()
-                            print(f"    ✓ Clicked: {event.html_component}")
-                            
-                        elif operation_name == "input_text":
-                            locator = page.locator(event.html_component)
-                            await locator.fill(event.input_text)
-                            print(f"    ✓ Input text: {event.input_text}")
-                        
-                        # Wait for any navigation/updates
-                        await page.wait_for_load_state('networkidle')
-                        
-                    except Exception as e:
-                        print(f"    ⚠️ Event {i} error: {e}")
-                        continue
-                
-                # Wait for final state
-                print("\n  ⏳ Waiting for final page state...")
-                await page.wait_for_load_state('networkidle')
-                await page.wait_for_timeout(2000)  # Additional 2s for any async operations
-                
-                # Capture final DOM
-                final_html = await page.content()
-                with open(final_dom_path, 'w', encoding='utf-8') as f:
-                    f.write(final_html)
-                
-                await browser.close()
-                
-            return {'success': True}
-            
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
 
 
 
@@ -501,7 +428,7 @@ class AutomationRunner:
             
             # Execute and capture final DOM
             final_dom_path = dom_output_file.replace('.txt', '_final.txt')
-            execution_result = await self._execute_and_capture_dom(
+            execution_result = await self.event_executor._execute_and_capture_dom(
                 events,
                 final_dom_path
             )
