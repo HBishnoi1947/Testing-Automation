@@ -324,7 +324,7 @@ window._wpemojiSettings = {"baseUrl":"https:\/\/s.w.org\/images\/core\/emoji\/16
 		</div>
 		<button id="submit" class="btn">Submit</button>
 	</div>
-	<div id="error" class="show">Your username is invalid!</div>
+	<div id="error">Your username is invalid!</div>
 	<hr class="wp-block-separator">
 		<h5>Test case 1: Positive LogIn test</h5>
 		<ol>
@@ -414,11 +414,11 @@ _stq.push([ "view", JSON.parse("{\"v\":\"ext\",\"blog\":\"167878209\",\"post\":\
 _stq.push([ "clickTrackerInit", "167878209", "251" ]);
 /* ]]> */
 </script>
-<script type="text/javascript" src="https://stats.wp.com/e-202544.js" id="jetpack-stats-js" defer="defer" data-wp-strategy="defer"></script>
+<script type="text/javascript" src="https://stats.wp.com/e-202545.js" id="jetpack-stats-js" defer="defer" data-wp-strategy="defer"></script>
 
 
 
 
 
 
-<img src="https://pixel.wp.com/g.gif?v=ext&amp;blog=167878209&amp;post=251&amp;tz=-5&amp;srv=practicetestautomation.com&amp;j=1%3A14.5&amp;host=practicetestautomation.com&amp;ref=&amp;fcp=0&amp;rand=0.24811627757946386" alt="" width="6" height="5" id="wpstats"></body></html>
+<img src="https://pixel.wp.com/g.gif?v=ext&amp;blog=167878209&amp;post=251&amp;tz=-5&amp;srv=practicetestautomation.com&amp;j=1%3A14.5&amp;host=practicetestautomation.com&amp;ref=&amp;fcp=1996&amp;rand=0.868682284386102" alt="" width="6" height="5" id="wpstats"></body></html>

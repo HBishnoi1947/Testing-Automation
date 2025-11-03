@@ -161,7 +161,9 @@ class AutomationRunner:
                     'error': execution_result.get('error', 'Execution failed')
                 }
             
+            final_url = execution_result.get('final_url', target_url)
             print(f"✅ Events executed, final DOM saved to: {final_dom_path}")
+            print(f"✅ Final URL: {final_url}")
             
             # Step 6: Validate execution with AI
             # Step 6: Validate execution with AI
@@ -194,7 +196,7 @@ class AutomationRunner:
                 verification_event = {
                 "operation_name": "verify_element",
                 "step_number": last_step + 1,
-                "url": None,  
+                "url": final_url,  
                 "html_component": verification_selector,
                 "input_text": verification_desc
             }
@@ -442,6 +444,9 @@ class AutomationRunner:
                 }
             
             print(f"✅ Events executed, final DOM saved to: {final_dom_path}")
+            final_url = execution_result.get('final_url', target_url)
+            print(f"✅ Events executed, final DOM saved to: {final_dom_path}")
+            print(f"✅ Final URL: {final_url}")
             
             # Step 7: Validate execution with AI
             print("\n🔍 Step 7: Validating execution with AI...")
@@ -494,7 +499,7 @@ class AutomationRunner:
                 verification_event = {
                     "operation_name": "verify_element",
                     "step_number": last_step + 1,
-                    "url": None,
+                    "url": final_url,
                     "html_component": verification_selector,
                     "input_text": verification_desc
                 }

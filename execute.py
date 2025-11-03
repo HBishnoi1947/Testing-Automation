@@ -480,7 +480,8 @@ class EventExecutor:
                 print("\n  ⏳ Waiting for final page state...")
                 await page.wait_for_load_state('networkidle')
                 await page.wait_for_timeout(2000)  # Additional 2s for any async operations
-                
+                final_url = page.url
+                print(f"  📍 Final URL: {final_url}")
                 # Capture final DOM
                 final_html = await page.content()
                 with open(final_dom_path, 'w', encoding='utf-8') as f:
@@ -488,7 +489,8 @@ class EventExecutor:
                 
                 await browser.close()
                 
-            return {'success': True}
+            return {'success': True,
+                    'final_url' :final_url}
             
         except Exception as e:
             return {'success': False, 'error': str(e)}

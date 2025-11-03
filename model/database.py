@@ -418,7 +418,9 @@ def create_events(feature_name: str, events: List[dict], db_path: str = "databas
 
 
 def update_events(feature_id: int, events: List[dict], db_path: str = "database.db") -> List[int]:
-    """Update events for a specific feature by deleting existing events and inserting new ones.
+    """
+    Update events for a specific feature by deleting existing NON-VERIFICATION events 
+    and inserting new ones. Verification events are managed separately by run.py.
     
     Args:
         feature_id: ID of the feature to update events for
@@ -427,35 +429,28 @@ def update_events(feature_id: int, events: List[dict], db_path: str = "database.
         
     Returns:
         List[int]: List of created event IDs
-        
-    Example:
-        events = [
-            {
-                "operation_name": "input_text",
-                "step_number": 1,
-                "url": "https://example.com/login",
-                "html_component": "input[id='email']",
-                "input_text": "user@example.com"
-            },
-            {
-                "operation_name": "click",
-                "step_number": 2,
-                "url": "https://example.com/login",
-                "html_component": "button[type='submit']",
-                "input_text": None
-            }
-        ]
-        event_ids = update_events(1, events)  # Update events for feature_id 1
     """
     conn = connect_to_sqlite_database(db_path)
     created_event_ids = []
-    
     try:
-        # First, delete all existing events for this feature_id
-        delete_sql = "DELETE FROM events WHERE feature_id = ?"
-        cursor = conn.execute(delete_sql, (feature_id,))
+        # ✅ Get verify_element operation_id to exclude it from deletion
+        cursor = conn.execute(
+            "SELECT id FROM operation_types WHERE operation = 'verify_element'"
+        )
+        row = cursor.fetchone()
+        verify_operation_id = row['id'] if row else None
+        
+        # Delete all existing NON-VERIFICATION events for this feature_id
+        if verify_operation_id:
+            delete_sql = "DELETE FROM events WHERE feature_id = ? AND operation_id != ?"
+            cursor = conn.execute(delete_sql, (feature_id, verify_operation_id))
+        else:
+            # Fallback: delete all if verify_element operation doesn't exist
+            delete_sql = "DELETE FROM events WHERE feature_id = ?"
+            cursor = conn.execute(delete_sql, (feature_id,))
+        
         deleted_count = cursor.rowcount
-        print(f"Deleted {deleted_count} existing events for feature_id {feature_id}")
+        print(f"Deleted {deleted_count} existing non-verification events for feature_id {feature_id}")
         
         # Insert all new events
         for event in events:
@@ -478,7 +473,6 @@ def update_events(feature_id: int, events: List[dict], db_path: str = "database.
                 ))
                 event_id = cursor.lastrowid
                 created_event_ids.append(event_id)
-                
                 print(f"Created event with ID {event_id} for operation '{event['operation_name']}' (step {event['step_number']})")
                 
             except Exception as e:
@@ -487,12 +481,12 @@ def update_events(feature_id: int, events: List[dict], db_path: str = "database.
         
         conn.commit()
         print(f"Successfully updated {len(created_event_ids)} events for feature_id {feature_id}")
+        
         return created_event_ids
         
     except Exception as e:
         conn.rollback()
         raise RuntimeError(f"Failed to update events for feature_id {feature_id}: {e}")
-    
     finally:
         conn.close()
 
@@ -1317,10 +1311,11 @@ def delete_verification_event(feature_id: int, db_path: str = "database.db") -> 
     try:
         # Get verify_element operation_id
         cursor = conn.execute(
-            "SELECT id FROM operation_type WHERE operation = 'verify_element'"
+            "SELECT id FROM operation_types WHERE operation = 'verify_element'"  # ✅ FIXED: operation_types
         )
         row = cursor.fetchone()
         if not row:
+            print(f"[DB] Warning: verify_element operation not found in operation_types table")
             return False
         
         verify_operation_id = row['id']

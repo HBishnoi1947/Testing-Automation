@@ -6,17 +6,17 @@
 <meta name="template" content="Modern Store Modified 1.14">
 
 	<!-- This site is optimized with the Yoast SEO plugin v24.8.1 - https://yoast.com/wordpress/plugins/seo/ -->
-	<title>Test Login | Practice Test Automation</title>
-	<link rel="canonical" href="https://practicetestautomation.com/practice-test-login/">
+	<title>Logged In Successfully | Practice Test Automation</title>
+	<link rel="canonical" href="https://practicetestautomation.com/logged-in-successfully/">
 	<meta property="og:locale" content="en_US">
 	<meta property="og:type" content="article">
-	<meta property="og:title" content="Test Login | Practice Test Automation">
-	<meta property="og:description" content="This is a simple Login page. Students can use this page to practice writing simple positive and negative LogIn tests. Login functionality is something that…Read MoreTest Login">
-	<meta property="og:url" content="https://practicetestautomation.com/practice-test-login/">
+	<meta property="og:title" content="Logged In Successfully | Practice Test Automation">
+	<meta property="og:description" content="Congratulations student. You successfully logged in! Log out">
+	<meta property="og:url" content="https://practicetestautomation.com/logged-in-successfully/">
 	<meta property="og:site_name" content="Practice Test Automation">
-	<meta property="article:modified_time" content="2020-09-08T18:34:16+00:00">
+	<meta property="article:modified_time" content="2020-09-11T14:53:28+00:00">
 	<meta name="twitter:card" content="summary_large_image">
-	<script type="application/ld+json" class="yoast-schema-graph">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://practicetestautomation.com/practice-test-login/","url":"https://practicetestautomation.com/practice-test-login/","name":"Test Login | Practice Test Automation","isPartOf":{"@id":"https://practicetestautomation.com/#website"},"datePublished":"2020-01-23T22:05:39+00:00","dateModified":"2020-09-08T18:34:16+00:00","breadcrumb":{"@id":"https://practicetestautomation.com/practice-test-login/#breadcrumb"},"inLanguage":"en-US","potentialAction":[{"@type":"ReadAction","target":["https://practicetestautomation.com/practice-test-login/"]}]},{"@type":"BreadcrumbList","@id":"https://practicetestautomation.com/practice-test-login/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://practicetestautomation.com/"},{"@type":"ListItem","position":2,"name":"Test Login"}]},{"@type":"WebSite","@id":"https://practicetestautomation.com/#website","url":"https://practicetestautomation.com/","name":"Practice Test Automation","description":"","publisher":{"@id":"https://practicetestautomation.com/#/schema/person/b8f6670c2b21daaf53aa48dbc7f148b1"},"potentialAction":[{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://practicetestautomation.com/?s={search_term_string}"},"query-input":{"@type":"PropertyValueSpecification","valueRequired":true,"valueName":"search_term_string"}}],"inLanguage":"en-US"},{"@type":["Person","Organization"],"@id":"https://practicetestautomation.com/#/schema/person/b8f6670c2b21daaf53aa48dbc7f148b1","name":"Dmitry Shyshkin","image":{"@type":"ImageObject","inLanguage":"en-US","@id":"https://practicetestautomation.com/#/schema/person/image/","url":"https://i0.wp.com/practicetestautomation.com/wp-content/uploads/2019/10/Logo-1.png?fit=305%2C96&ssl=1","contentUrl":"https://i0.wp.com/practicetestautomation.com/wp-content/uploads/2019/10/Logo-1.png?fit=305%2C96&ssl=1","width":305,"height":96,"caption":"Dmitry Shyshkin"},"logo":{"@id":"https://practicetestautomation.com/#/schema/person/image/"}}]}</script>
+	<script type="application/ld+json" class="yoast-schema-graph">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://practicetestautomation.com/logged-in-successfully/","url":"https://practicetestautomation.com/logged-in-successfully/","name":"Logged In Successfully | Practice Test Automation","isPartOf":{"@id":"https://practicetestautomation.com/#website"},"datePublished":"2020-01-24T00:34:29+00:00","dateModified":"2020-09-11T14:53:28+00:00","breadcrumb":{"@id":"https://practicetestautomation.com/logged-in-successfully/#breadcrumb"},"inLanguage":"en-US","potentialAction":[{"@type":"ReadAction","target":["https://practicetestautomation.com/logged-in-successfully/"]}]},{"@type":"BreadcrumbList","@id":"https://practicetestautomation.com/logged-in-successfully/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://practicetestautomation.com/"},{"@type":"ListItem","position":2,"name":"Logged In Successfully"}]},{"@type":"WebSite","@id":"https://practicetestautomation.com/#website","url":"https://practicetestautomation.com/","name":"Practice Test Automation","description":"","publisher":{"@id":"https://practicetestautomation.com/#/schema/person/b8f6670c2b21daaf53aa48dbc7f148b1"},"potentialAction":[{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://practicetestautomation.com/?s={search_term_string}"},"query-input":{"@type":"PropertyValueSpecification","valueRequired":true,"valueName":"search_term_string"}}],"inLanguage":"en-US"},{"@type":["Person","Organization"],"@id":"https://practicetestautomation.com/#/schema/person/b8f6670c2b21daaf53aa48dbc7f148b1","name":"Dmitry Shyshkin","image":{"@type":"ImageObject","inLanguage":"en-US","@id":"https://practicetestautomation.com/#/schema/person/image/","url":"https://i0.wp.com/practicetestautomation.com/wp-content/uploads/2019/10/Logo-1.png?fit=305%2C96&ssl=1","contentUrl":"https://i0.wp.com/practicetestautomation.com/wp-content/uploads/2019/10/Logo-1.png?fit=305%2C96&ssl=1","width":305,"height":96,"caption":"Dmitry Shyshkin"},"logo":{"@id":"https://practicetestautomation.com/#/schema/person/image/"}}]}</script>
 	<!-- / Yoast SEO plugin. -->
 
 
@@ -93,11 +93,11 @@ window._wpemojiSettings = {"baseUrl":"https:\/\/s.w.org\/images\/core\/emoji\/16
 </script>
 <script type="text/javascript" src="https://practicetestautomation.com/wp-includes/js/jquery/jquery.min.js?ver=3.7.1" id="jquery-core-js"></script>
 <script type="text/javascript" src="https://practicetestautomation.com/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1" id="jquery-migrate-js"></script>
-<link rel="https://api.w.org/" href="https://practicetestautomation.com/wp-json/"><link rel="alternate" title="JSON" type="application/json" href="https://practicetestautomation.com/wp-json/wp/v2/pages/251"><link rel="EditURI" type="application/rsd+xml" title="RSD" href="https://practicetestautomation.com/xmlrpc.php?rsd">
+<link rel="https://api.w.org/" href="https://practicetestautomation.com/wp-json/"><link rel="alternate" title="JSON" type="application/json" href="https://practicetestautomation.com/wp-json/wp/v2/pages/257"><link rel="EditURI" type="application/rsd+xml" title="RSD" href="https://practicetestautomation.com/xmlrpc.php?rsd">
 <meta name="generator" content="WordPress 6.8.3">
-<link rel="shortlink" href="https://wp.me/PbmoN3-43">
-<link rel="alternate" title="oEmbed (JSON)" type="application/json+oembed" href="https://practicetestautomation.com/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fpracticetestautomation.com%2Fpractice-test-login%2F">
-<link rel="alternate" title="oEmbed (XML)" type="text/xml+oembed" href="https://practicetestautomation.com/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fpracticetestautomation.com%2Fpractice-test-login%2F&amp;format=xml">
+<link rel="shortlink" href="https://wp.me/PbmoN3-49">
+<link rel="alternate" title="oEmbed (JSON)" type="application/json+oembed" href="https://practicetestautomation.com/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fpracticetestautomation.com%2Flogged-in-successfully%2F">
+<link rel="alternate" title="oEmbed (XML)" type="text/xml+oembed" href="https://practicetestautomation.com/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fpracticetestautomation.com%2Flogged-in-successfully%2F&amp;format=xml">
 	<style>img#wpstats{display:none}</style>
 		<link rel="icon" href="https://i0.wp.com/practicetestautomation.com/wp-content/uploads/2019/10/cropped-5.png?fit=32%2C32&amp;ssl=1" sizes="32x32">
 <link rel="icon" href="https://i0.wp.com/practicetestautomation.com/wp-content/uploads/2019/10/cropped-5.png?fit=192%2C192&amp;ssl=1" sizes="192x192">
@@ -235,7 +235,7 @@ window._wpemojiSettings = {"baseUrl":"https:\/\/s.w.org\/images\/core\/emoji\/16
 		</style>
 		<script src="https://practicetestautomation.com/wp-includes/js/wp-emoji-release.min.js?ver=6.8.3" defer=""></script><style id="fit-vids-style">.fluid-width-video-wrapper{width:100%;position:relative;padding:0;}.fluid-width-video-wrapper iframe,.fluid-width-video-wrapper object,.fluid-width-video-wrapper embed {position:absolute;top:0;left:0;width:100%;height:100%;}</style></head>
 
-<body id="modern-store-modified" class="wp-singular page-template page-template-simple_login page-template-simple_login-php page page-id-251 wp-custom-logo wp-theme-modern-store-modified full-post">
+<body id="modern-store-modified" class="wp-singular page-template-default page page-id-257 wp-custom-logo wp-theme-modern-store-modified full-post">
 			<a class="skip-content" href="#main-container">Press "Enter" to skip to content</a>
 	<div id="overflow-container" class="overflow-container">
 		<div id="max-width" class="max-width">
@@ -304,87 +304,28 @@ window._wpemojiSettings = {"baseUrl":"https:\/\/s.w.org\/images\/core\/emoji\/16
 			</header>
 									<section id="main-container" class="main-container" role="main">
 				
-<section id="login">
-	<h2>Test login</h2>
-	<ul>
-		<li>This is a simple Login page. Students can use this page to practice writing simple positive and negative LogIn tests. Login functionality is something that most of the test automation engineers need to automate.</li>
-		<li>Use next credentials to execute Login:
-		<br>Username: <b>student</b>
-		<br>Password: <b>Password123</b>
-		</li>
-	</ul>
-	<div id="form">
-		<div>
-			<label for="username">Username</label>
-			<input type="text" name="username" id="username">
+<div id="loop-container" class="loop-container">
+    <div class="post-257 page type-page status-publish hentry entry">
+		<article>
+		<div class="post-header">
+			<h1 class="post-title">Logged In Successfully</h1>
 		</div>
-		<div>
-			<label for="password">Password</label>
-			<input type="password" name="password" id="password">
-		</div>
-		<button id="submit" class="btn">Submit</button>
-	</div>
-	<div id="error" class="show">Your username is invalid!</div>
-	<hr class="wp-block-separator">
-		<h5>Test case 1: Positive LogIn test</h5>
-		<ol>
-			<li>Open page</li>
-			<li>Type username <b>student</b> into Username field</li>
-			<li>Type password <b>Password123</b> into Password field</li>
-			<li>Push <b>Submit</b> button</li>
-			<li>Verify new page URL contains <b>practicetestautomation.com/logged-in-successfully/</b></li>
-			<!-- <li>Verify new page contains text 'Congratulations student. You successfully logged in!'</li> -->
-			<li>Verify new page contains expected text ('Congratulations' or 'successfully logged in')</li>
-			<li>Verify button <b>Log out</b> is displayed on the new page</li>
-		</ol>
-		<hr class="wp-block-separator">
-		<h5>Test case 2: Negative username test</h5>
-		<ol>
-			<li>Open page</li>
-			<li>Type username <b>incorrectUser</b> into Username field</li>
-			<li>Type password <b>Password123</b> into Password field</li>
-			<li>Push <b>Submit</b> button</li>
-			<li>Verify error message is displayed</li>
-			<li>Verify error message text is <b>Your username is invalid!</b></li>
-		</ol>
-		<hr class="wp-block-separator">
-		<h5>Test case 3: Negative password test</h5>
-		<ol>
-			<li>Open page</li>
-			<li>Type username <b>student</b> into Username field</li>
-			<li>Type password <b>incorrectPassword</b> into Password field</li>
-			<li>Push <b>Submit</b> button</li>
-			<li>Verify error message is displayed</li>
-			<li>Verify error message text is <b>Your password is invalid!</b></li>
-		</ol>
-	</section>
-	<script>
-		document.addEventListener("DOMContentLoaded", function () {
-			const username = document.querySelector("#username"),
-				password = document.querySelector("#password"),
-				submit = document.querySelector("#submit"),
-				error = document.querySelector("#error");
+				<div class="post-content">
+			
+<p class="has-text-align-center"><strong>Congratulations student. You successfully logged in!</strong></p>
 
-			submit.addEventListener("click", function () {
-				let us_name = username.value,
-					us_pass = password.value;
 
-				if(us_name == "student" && us_pass == "Password123"){
-					window.location.href = "https://practicetestautomation.com/logged-in-successfully";
-				}else if(us_name == "student" && us_pass != "Password123"){
-					error.innerHTML = "Your password is invalid!";
-					error.classList.add("show");
-					username.value = "";
-					password.value = "";
-				}else{
-					error.innerHTML = "Your username is invalid!";
-					error.classList.add("show");
-					username.value = "";
-					password.value = "";
-				}
-			})
-		})
-	</script>
+
+<div class="wp-block-group"><div class="wp-block-group__inner-container is-layout-flow wp-block-group-is-layout-flow">
+<div class="wp-block-button aligncenter is-style-fill"><a class="wp-block-button__link has-text-color has-background has-very-dark-gray-background-color" href="https://practicetestautomation.com/practice-test-login/" style="color:#ffffff">Log out</a></div>
+</div></div>
+
+
+
+<p></p>
+					</div>
+	</article>
+		</div></div>
 
 </section> <!-- .main-container -->
 
@@ -410,15 +351,15 @@ var objectL10n = {"openMenu":"open menu","closeMenu":"close menu","openChildMenu
 <script type="text/javascript" id="jetpack-stats-js-before">
 /* <![CDATA[ */
 _stq = window._stq || [];
-_stq.push([ "view", JSON.parse("{\"v\":\"ext\",\"blog\":\"167878209\",\"post\":\"251\",\"tz\":\"-5\",\"srv\":\"practicetestautomation.com\",\"j\":\"1:14.5\"}") ]);
-_stq.push([ "clickTrackerInit", "167878209", "251" ]);
+_stq.push([ "view", JSON.parse("{\"v\":\"ext\",\"blog\":\"167878209\",\"post\":\"257\",\"tz\":\"-5\",\"srv\":\"practicetestautomation.com\",\"j\":\"1:14.5\"}") ]);
+_stq.push([ "clickTrackerInit", "167878209", "257" ]);
 /* ]]> */
 </script>
-<script type="text/javascript" src="https://stats.wp.com/e-202544.js" id="jetpack-stats-js" defer="defer" data-wp-strategy="defer"></script>
+<script type="text/javascript" src="https://stats.wp.com/e-202545.js" id="jetpack-stats-js" defer="defer" data-wp-strategy="defer"></script>
 
 
 
 
 
 
-<img src="https://pixel.wp.com/g.gif?v=ext&amp;blog=167878209&amp;post=251&amp;tz=-5&amp;srv=practicetestautomation.com&amp;j=1%3A14.5&amp;host=practicetestautomation.com&amp;ref=&amp;fcp=0&amp;rand=0.5612817126166556" alt="" width="6" height="5" id="wpstats"></body></html>
+<img src="https://pixel.wp.com/g.gif?v=ext&amp;blog=167878209&amp;post=257&amp;tz=-5&amp;srv=practicetestautomation.com&amp;j=1%3A14.5&amp;host=practicetestautomation.com&amp;ref=&amp;fcp=0&amp;rand=0.7180291148894524" alt="" width="6" height="5" id="wpstats"></body></html>

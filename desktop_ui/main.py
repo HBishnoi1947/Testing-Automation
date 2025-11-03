@@ -401,14 +401,46 @@ class DesktopUI:
         self.update_status("Update error", 'error')
         messagebox.showerror("Error", f"Feature update failed: {error_msg}")
     
-    def refresh_data(self):
-        """Refresh data from database."""
+    def refresh_data(self, new_feature_name=None):
+        """
+        Refresh data from database.
+        
+        Args:
+            new_feature_name: If provided, auto-select this feature after refresh
+        """
         self.update_status("Refreshing data...", 'info')
+        
         # Refresh all pages
         self.features_page.refresh_data()
         self.events_page.refresh_data()
         self.testing_module_page.refresh_data()
+        
+        # ✅ If a new feature was created, auto-select it to show events
+        if new_feature_name:
+            self.root.after(200, lambda: self._auto_select_feature(new_feature_name))
+        
         self.update_status("Data refreshed successfully", 'success')
+
+    def _auto_select_feature(self, feature_name):
+        """Auto-select a feature by name after creation."""
+        try:
+            # Find the feature in the features list
+            for i, feature in enumerate(self.features_page.features):
+                if feature.feature == feature_name:
+                    # Select it in the listbox
+                    self.features_page.features_listbox.selection_clear(0, tk.END)
+                    self.features_page.features_listbox.selection_set(i)
+                    self.features_page.features_listbox.activate(i)
+                    
+                    # Trigger the selection event to load events
+                    self.features_page.current_feature = feature
+                    self.on_feature_select(feature)
+                    
+                    print(f"[UI] Auto-selected newly created feature: {feature_name} (ID: {feature.id})")
+                    break
+        except Exception as e:
+            print(f"[UI] Error auto-selecting feature: {e}")
+
     
     def update_status(self, message, status_type='info'):
         """Update the status indicator and message."""
