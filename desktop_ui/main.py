@@ -506,13 +506,16 @@ class DesktopUI:
             self.root.after(1000, self.refresh_data)
         refresh_after_delay()
     
-    def run_events(self):
-        """Run all events for the selected feature."""
-        if not self.events_page:
-            return
-        
-        current_feature = self.events_page.get_current_feature()
-        events = self.events_page.get_events()
+    def run_events(self, current_feature=None, events=None):
+        """Run all events for the selected feature.
+        Accepts optional current_feature and events for callback compatibility.
+        """
+        # Allow invocation as a callback with parameters or fallback to UI state
+        if current_feature is None or events is None:
+            if not self.events_page:
+                return
+            current_feature = self.events_page.get_current_feature()
+            events = self.events_page.get_events()
         
         if not current_feature or not events:
             messagebox.showwarning("Warning", "No events to run!")
