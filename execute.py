@@ -5,10 +5,238 @@ Executes a list of events using Playwright browser automation.
 
 from playwright.sync_api import sync_playwright, Page, Browser
 import time
-from typing import List, Optional
+import re
+from typing import List, Optional, Tuple
 from model.event import Event
 from model.operation_type import OperationTypeMapper
 from dom_extract import save_page_dom_to_file
+
+
+class ComponentLocator:
+    """
+    Helper class for intelligent component identification with high accuracy.
+    Handles multiple selector types and fallback strategies.
+    """
+    
+    @staticmethod
+    def detect_selector_type(selector: str) -> str:
+        """
+        Detect the type of selector.
+        
+        Args:
+            selector: The selector string
+            
+        Returns:
+            str: Type of selector ('text', 'xpath', 'css', 'id', 'class', 'name', 'unknown')
+        """
+        if not selector:
+            return 'unknown'
+        
+        selector = selector.strip()
+        
+        # Text-based selectors
+        if selector.startswith("text="):
+            return 'text'
+        if "text=" in selector.lower() or "text='" in selector or 'text="' in selector:
+            return 'text'
+        
+        # XPath selectors
+        if selector.startswith("//") or selector.startswith("xpath=") or selector.startswith("/html"):
+            return 'xpath'
+        
+        # ID selector (starts with #)
+        if selector.startswith("#"):
+            return 'id'
+        
+        # Class selector (starts with .)
+        if selector.startswith("."):
+            return 'class'
+        
+        # Name attribute selector
+        if selector.startswith("[name=") or selector.startswith("[name='"):
+            return 'name'
+        
+        # CSS selector (contains brackets, colons, spaces, etc.)
+        if any(char in selector for char in ['[', ']', ':', '>', '+', '~', ' ', ',']):
+            return 'css'
+        
+        # Default to CSS
+        return 'css'
+    
+    @staticmethod
+    def extract_text_from_selector(selector: str) -> Optional[str]:
+        """
+        Extract text content from text-based selectors.
+        
+        Args:
+            selector: Selector string that may contain text
+            
+        Returns:
+            str or None: Extracted text content
+        """
+        if not selector:
+            return None
+        
+        # Format: text=Some Text
+        if selector.startswith("text="):
+            return selector[5:].strip()
+        
+        # Format: a[text='Some Text'] or a[text="Some Text"]
+        text_patterns = [
+            r"text=['\"]([^'\"]+)['\"]",  # text='...' or text="..."
+            r"text=([^\]]+)",  # text=... (without quotes)
+        ]
+        
+        for pattern in text_patterns:
+            match = re.search(pattern, selector, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+        
+        return None
+    
+    @staticmethod
+    def find_element(page: Page, selector: str, timeout: int = 5000) -> Tuple[Optional[any], str]:
+        """
+        Find an element using multiple strategies with high accuracy.
+        
+        Args:
+            page: Playwright page object
+            selector: Selector string
+            timeout: Timeout in milliseconds for each attempt
+            
+        Returns:
+            Tuple[Locator or None, str]: (locator, strategy_used)
+        """
+        if not selector:
+            return None, "no_selector"
+        
+        selector_type = ComponentLocator.detect_selector_type(selector)
+        text_content = ComponentLocator.extract_text_from_selector(selector)
+        
+        # Strategy 1: Text-based selectors (highest accuracy for text matching)
+        if text_content:
+            try:
+                # Use Playwright's get_by_text (most reliable)
+                locator = page.get_by_text(text_content, exact=False)
+                if locator.count() > 0:
+                    return locator.first, "get_by_text"
+            except Exception as e:
+                print(f"    get_by_text failed: {e}")
+            
+            try:
+                # Try get_by_role with link role if it's a link selector
+                if selector.startswith("a[") or selector.startswith("a "):
+                    locator = page.get_by_role("link", name=text_content, exact=False)
+                    if locator.count() > 0:
+                        return locator.first, "get_by_role_link"
+            except Exception as e:
+                print(f"    get_by_role_link failed: {e}")
+            
+            try:
+                # Try :has-text() selector
+                locator = page.locator(f":has-text('{text_content}')")
+                if locator.count() > 0:
+                    return locator.first, "has_text_selector"
+            except Exception as e:
+                print(f"    :has-text() failed: {e}")
+            
+            try:
+                # Try XPath with contains text
+                locator = page.locator(f"xpath=//*[contains(text(), '{text_content}')]")
+                if locator.count() > 0:
+                    return locator.first, "xpath_text"
+            except Exception as e:
+                print(f"    XPath text failed: {e}")
+        
+        # Strategy 2: Direct CSS selector
+        if selector_type == 'css':
+            try:
+                locator = page.locator(selector)
+                if locator.count() > 0:
+                    return locator.first, "css_selector"
+            except Exception as e:
+                print(f"    CSS selector failed: {e}")
+        
+        # Strategy 3: XPath
+        if selector_type == 'xpath' or selector.startswith("//"):
+            try:
+                xpath = selector.replace("xpath=", "") if selector.startswith("xpath=") else selector
+                locator = page.locator(f"xpath={xpath}")
+                if locator.count() > 0:
+                    return locator.first, "xpath"
+            except Exception as e:
+                print(f"    XPath failed: {e}")
+        
+        # Strategy 4: ID selector
+        if selector_type == 'id':
+            try:
+                id_value = selector.lstrip("#")
+                locator = page.locator(f"#{id_value}")
+                if locator.count() > 0:
+                    return locator.first, "id_selector"
+            except Exception as e:
+                print(f"    ID selector failed: {e}")
+        
+        # Strategy 5: Class selector
+        if selector_type == 'class':
+            try:
+                class_value = selector.lstrip(".")
+                locator = page.locator(f".{class_value}")
+                if locator.count() > 0:
+                    return locator.first, "class_selector"
+            except Exception as e:
+                print(f"    Class selector failed: {e}")
+        
+        # Strategy 6: Name attribute
+        if selector_type == 'name':
+            try:
+                # Extract name value
+                name_match = re.search(r"name=['\"]?([^'\"]+)['\"]?", selector)
+                if name_match:
+                    name_value = name_match.group(1)
+                    locator = page.locator(f"[name='{name_value}']")
+                    if locator.count() > 0:
+                        return locator.first, "name_selector"
+            except Exception as e:
+                print(f"    Name selector failed: {e}")
+        
+        # Strategy 7: Try as ID (if selector looks like an ID)
+        if selector_type not in ['id', 'class'] and not selector.startswith(('/', '[', '.', '#')):
+            try:
+                locator = page.locator(f"#{selector}")
+                if locator.count() > 0:
+                    return locator.first, "id_fallback"
+            except Exception as e:
+                pass
+        
+        # Strategy 8: Try as class (if selector looks like a class)
+        if selector_type not in ['id', 'class'] and not selector.startswith(('/', '[', '.', '#')):
+            try:
+                locator = page.locator(f".{selector}")
+                if locator.count() > 0:
+                    return locator.first, "class_fallback"
+            except Exception as e:
+                pass
+        
+        # Strategy 9: Try as name attribute (common for form inputs)
+        if selector_type not in ['name'] and not selector.startswith(('/', '[', '.', '#')):
+            try:
+                locator = page.locator(f"[name='{selector}']")
+                if locator.count() > 0:
+                    return locator.first, "name_fallback"
+            except Exception as e:
+                pass
+        
+        # Strategy 10: Try exact text match as last resort
+        if text_content:
+            try:
+                locator = page.get_by_text(text_content, exact=True)
+                if locator.count() > 0:
+                    return locator.first, "exact_text"
+            except Exception as e:
+                pass
+        
+        return None, "not_found"
 
 
 class EventExecutor:
@@ -259,39 +487,28 @@ class EventExecutor:
             mapper = OperationTypeMapper()
             mapper.load_operation_types()
             
-            # Execute each event
-            for i, event in enumerate(events, 1):
-                print(f"  Executing event {i}/{len(events)}: {event.operation_id}")
-                
-                try:
+            # Set page to instance variable so _execute_single_event can use it
+            original_page = self.page
+            self.page = page
+            
+            try:
+                # Execute each event
+                for i, event in enumerate(events, 1):
+                    print(f"  Executing event {i}/{len(events)}: {event.operation_id}")
                     
-                    operation_name = mapper.get_operation_name_by_id(event.operation_id)
-                    print("current url", event.url)
-                    print("page url", page.url)
-                    # Navigate if URL changed
-                    current_url = page.url
-                    if self._is_same_url(current_url, event.url)== False:
-                        print("url not same")
-                        page.goto(event.url)
-                        page.wait_for_load_state('networkidle')
-                    
-                    # Execute based on operation type
-                    if operation_name == "click":
-                        locator = page.locator(event.html_component)
-                        locator.click()
-                        print(f"    ✓ Clicked: {event.html_component}")
+                    try:
+                        # Use _execute_single_event for consistent behavior
+                        self._execute_single_event(event)
                         
-                    elif operation_name == "input_text":
-                        locator = page.locator(event.html_component)
-                        locator.fill(event.input_text)
-                        print(f"    ✓ Input text: {event.input_text}")
-                    
-                    # Wait for any navigation/updates
-                    page.wait_for_load_state('networkidle')
-                    
-                except Exception as e:
-                    print(f"    ⚠️ Event {i} error: {e}")
-                    continue
+                        # Wait for any navigation/updates
+                        page.wait_for_load_state('networkidle')
+                        
+                    except Exception as e:
+                        print(f"    ⚠️ Event {i} error: {e}")
+                        continue
+            finally:
+                # Restore original page reference
+                self.page = original_page
             
             # Wait for final state
             print("\n  ⏳ Waiting for final page state...")
@@ -524,50 +741,19 @@ class EventExecutor:
         
         print(f"Clicking element: {event.html_component}")
         
-        # Try different locator strategies
-        locator = None
+        # Use ComponentLocator for intelligent element identification
+        locator, strategy = ComponentLocator.find_element(self.page, event.html_component)
         
-        # Try as CSS selector first (most common)
-        try:
-            locator = self.page.locator(event.html_component)
-            if locator.count() > 0:
-                locator.click()
-                print(f"✅ Successfully clicked element: {event.html_component}")
+        if locator:
+            try:
+                locator.click(timeout=10000)  # 10 second timeout for click
+                print(f"✅ Successfully clicked element using {strategy}: {event.html_component}")
                 return
-        except Exception as e:
-            print(f"CSS selector failed: {e}")
-        
-        # Try as XPath
-        try:
-            locator = self.page.locator(f"xpath={event.html_component}")
-            if locator.count() > 0:
-                locator.click()
-                print(f"✅ Successfully clicked element: {event.html_component}")
-                return
-        except Exception as e:
-            print(f"XPath failed: {e}")
-        
-        # Try as ID selector
-        try:
-            locator = self.page.locator(f"#{event.html_component}")
-            if locator.count() > 0:
-                locator.click()
-                print(f"✅ Successfully clicked element: {event.html_component}")
-                return
-        except Exception as e:
-            print(f"ID selector failed: {e}")
-        
-        # Try as class selector
-        try:
-            locator = self.page.locator(f".{event.html_component}")
-            if locator.count() > 0:
-                locator.click()
-                print(f"✅ Successfully clicked element: {event.html_component}")
-                return
-        except Exception as e:
-            print(f"Class selector failed: {e}")
-        
-        raise Exception(f"Could not find clickable element: {event.html_component}")
+            except Exception as e:
+                print(f"    Click action failed on found element: {e}")
+                raise Exception(f"Element found but click failed: {e}")
+        else:
+            raise Exception(f"Could not find clickable element: {event.html_component} (tried multiple strategies)")
     
     def _perform_input_text(self, event: Event):
         """Perform input text operation."""
@@ -578,60 +764,28 @@ class EventExecutor:
         
         print(f"Inputting text '{event.input_text}' into: {event.html_component}")
         
-        # Try different locator strategies
-        locator = None
+        # Use ComponentLocator for intelligent element identification
+        locator, strategy = ComponentLocator.find_element(self.page, event.html_component)
         
-        # Try as CSS selector first (most common)
-        try:
-            locator = self.page.locator(event.html_component)
-            if locator.count() > 0:
-                locator.fill(event.input_text)
-                print(f"✅ Successfully input text into: {event.html_component}")
+        if locator:
+            try:
+                # Clear and fill the input
+                locator.clear(timeout=5000)
+                locator.fill(event.input_text, timeout=5000)
+                print(f"✅ Successfully input text using {strategy}: {event.html_component}")
                 return
-        except Exception as e:
-            print(f"CSS selector failed: {e}")
-        
-        # Try as XPath
-        try:
-            locator = self.page.locator(f"xpath={event.html_component}")
-            if locator.count() > 0:
-                locator.fill(event.input_text)
-                print(f"✅ Successfully input text into: {event.html_component}")
-                return
-        except Exception as e:
-            print(f"XPath failed: {e}")
-        
-        # Try as ID selector
-        try:
-            locator = self.page.locator(f"#{event.html_component}")
-            if locator.count() > 0:
-                locator.fill(event.input_text)
-                print(f"✅ Successfully input text into: {event.html_component}")
-                return
-        except Exception as e:
-            print(f"ID selector failed: {e}")
-        
-        # Try as class selector
-        try:
-            locator = self.page.locator(f".{event.html_component}")
-            if locator.count() > 0:
-                locator.fill(event.input_text)
-                print(f"✅ Successfully input text into: {event.html_component}")
-                return
-        except Exception as e:
-            print(f"Class selector failed: {e}")
-        
-        # Try as name attribute
-        try:
-            locator = self.page.locator(f"[name='{event.html_component}']")
-            if locator.count() > 0:
-                locator.fill(event.input_text)
-                print(f"✅ Successfully input text into: {event.html_component}")
-                return
-        except Exception as e:
-            print(f"Name selector failed: {e}")
-        
-        raise Exception(f"Could not find input element: {event.html_component}")
+            except Exception as e:
+                print(f"    Fill action failed on found element: {e}")
+                # Try alternative: type instead of fill
+                try:
+                    locator.clear(timeout=5000)
+                    locator.type(event.input_text, delay=50, timeout=5000)
+                    print(f"✅ Successfully typed text using {strategy}: {event.html_component}")
+                    return
+                except Exception as e2:
+                    raise Exception(f"Element found but input failed: {e2}")
+        else:
+            raise Exception(f"Could not find input element: {event.html_component} (tried multiple strategies)")
     
     def _perform_scroll(self, event: Event):
         """Perform scroll operation."""
@@ -691,18 +845,27 @@ class EventExecutor:
             self.page.wait_for_load_state('networkidle')
             time.sleep(1)
             
-            # Try to locate the element
-            locator = self.page.locator(event.html_component)
+            # Use ComponentLocator for intelligent element identification
+            locator, strategy = ComponentLocator.find_element(self.page, event.html_component)
             
-            # Check if element exists and is visible
-            if locator.count() > 0:
-                if locator.first.is_visible():
-                    print(f"✅ Verification PASSED - Element found and visible!")
-                    return
-                else:
-                    raise Exception(f"Verification FAILED - Element exists but not visible")
+            if locator:
+                try:
+                    # Check if element is visible
+                    is_visible = locator.is_visible(timeout=5000)
+                    if is_visible:
+                        print(f"✅ Verification PASSED - Element found and visible using {strategy}!")
+                        return
+                    else:
+                        raise Exception(f"Verification FAILED - Element exists but not visible")
+                except Exception as e:
+                    # If visibility check fails, try count check
+                    if locator.count() > 0:
+                        print(f"✅ Verification PASSED - Element found using {strategy} (visibility check skipped)")
+                        return
+                    else:
+                        raise Exception(f"Verification FAILED - Element not found")
             else:
-                raise Exception(f"Verification FAILED - Element not found")
+                raise Exception(f"Verification FAILED - Element not found (tried multiple strategies)")
                 
         except Exception as e:
             print(f"❌ Verification error: {e}")

@@ -98,7 +98,7 @@ Based on the webpage elements, existing events, and instruction, generate update
   "events": [
     {{
       "url": "{url}",
-      "html_component": "<the exact HTML element to target>",
+      "html_component": "<the exact unizue HTML element to target that can be access by playwright>",
       "operation_name": "<click|scroll|input_text>",
       "input_text": "<text to input or null>",
       "step_number": <number>
