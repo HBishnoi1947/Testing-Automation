@@ -485,13 +485,16 @@ class DesktopUI:
         
         open_create_feature_dialog(self.root, self.update_status, self.refresh_data, self.current_project.id)
     
-    def update_feature(self):
-        """Update an existing feature using update automation workflow."""
-        if not self.events_page:
-            return
-        
-        current_feature = self.events_page.get_current_feature()
-        events = self.events_page.get_events()
+    def update_feature(self, current_feature=None, events=None):
+        """Update an existing feature using update automation workflow.
+        Accepts optional current_feature and events for callback compatibility.
+        """
+        # Allow invocation as a callback with parameters or fallback to UI state
+        if current_feature is None or events is None:
+            if not self.events_page:
+                return
+            current_feature = self.events_page.get_current_feature()
+            events = self.events_page.get_events()
         
         if not current_feature or not events:
             messagebox.showwarning("Warning", "No feature selected or no events to update!")
