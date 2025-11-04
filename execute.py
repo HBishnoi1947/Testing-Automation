@@ -8,6 +8,7 @@ import time
 from typing import List, Optional
 from model.event import Event
 from model.operation_type import OperationTypeMapper
+from dom_extract import save_page_dom_to_file
 
 
 class EventExecutor:
@@ -80,6 +81,84 @@ class EventExecutor:
             return False
         finally:
             self._cleanup()
+
+    async def _execute_and_capture_dom(self, events, final_dom_path: str):
+        """
+        Execute events and capture final DOM state.
+        
+        Args:
+            events: List of events to execute
+            final_dom_path: Path to save final DOM
+            
+        Returns:
+            dict: {'success': bool, 'error': str (optional)}
+        """
+        try:
+            from playwright.async_api import async_playwright
+            
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=False)
+                page = await browser.new_page()
+                
+                # Navigate to first event URL
+                if events and events[0].url:
+                    await page.goto(events[0].url)
+                    await page.wait_for_load_state('networkidle')
+                # Get operation name
+                from model.operation_type import OperationTypeMapper
+                mapper = OperationTypeMapper()
+                mapper.load_operation_types()
+                
+                # Execute each event
+                for i, event in enumerate(events, 1):
+                    print(f"  Executing event {i}/{len(events)}: {event.operation_id}")
+                    
+                    try:
+                        
+                        operation_name = mapper.get_operation_name_by_id(event.operation_id)
+                        print("current url", event.url)
+                        print("page url", page.url)
+                        # Navigate if URL changed
+                        current_url = page.url
+                        if self._is_same_url(current_url, event.url)== False:
+                            print("url not same")
+                            await page.goto(event.url)
+                            await page.wait_for_load_state('networkidle')
+                        
+                        # Execute based on operation type
+                        if operation_name == "click":
+                            locator = page.locator(event.html_component)
+                            await locator.click()
+                            print(f"    ✓ Clicked: {event.html_component}")
+                            
+                        elif operation_name == "input_text":
+                            locator = page.locator(event.html_component)
+                            await locator.fill(event.input_text)
+                            print(f"    ✓ Input text: {event.input_text}")
+                        
+                        # Wait for any navigation/updates
+                        await page.wait_for_load_state('networkidle')
+                        
+                    except Exception as e:
+                        print(f"    ⚠️ Event {i} error: {e}")
+                        continue
+                
+                # Wait for final state
+                print("\n  ⏳ Waiting for final page state...")
+                await page.wait_for_load_state('networkidle')
+                await page.wait_for_timeout(2000)  # Additional 2s for any async operations
+                final_url = page.url
+                print(f"  📍 Final URL: {final_url}")
+                # Capture final DOM
+                await save_page_dom_to_file(page, final_dom_path)
+                
+                await browser.close()
+                
+            return {'success': True,
+                    'final_url' :final_url}
+            
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
     
     def _execute_single_event(self, event: Event):
         """Execute a single event."""

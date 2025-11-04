@@ -119,3 +119,57 @@ IMPORTANT RULES:
 10. Return ONLY valid JSON, no explanation.
 """
 
+
+def get_validate_execution_prompt(
+    feature_name: str,
+    initial_formatted: str,
+    final_formatted: str,
+    expected_outcome: str = None
+) -> str:
+    """
+    Generate the system prompt for validating execution success.
+    
+    Args:
+        feature_name: Name of the feature being validated
+        initial_formatted: Formatted HTML elements from initial page state
+        final_formatted: Formatted HTML elements from final page state
+        expected_outcome: Optional description of expected outcome
+        
+    Returns:
+        Complete validation prompt string
+    """
+    expected_outcome_text = f"EXPECTED OUTCOME: {expected_outcome}" if expected_outcome else ""
+    
+    return f"""
+You are a web automation validation expert. Compare the initial and final state of a webpage after executing automation events for the feature: "{feature_name}".
+
+INITIAL PAGE STATE:
+{initial_formatted[:3000]}
+
+FINAL PAGE STATE:
+{final_formatted[:3000]}
+
+FEATURE: {feature_name}
+{expected_outcome_text}
+
+Your task:
+1. Determine if the automation was SUCCESSFUL by analyzing the changes
+2. Identify a SUCCESS INDICATOR element that proves the feature worked (e.g., success message, new page element, logged-in state indicator)
+3. Provide the CSS selector for this verification element
+
+Respond in this EXACT JSON format:
+{{
+  "success": true,
+  "reason": "Detailed explanation of why it succeeded or failed",
+  "suggestions": "If failed, suggest what to fix",
+  "verification_selector": "CSS selector for success indicator element (e.g., 'div.success-message', 'span.logged-in-user')",
+  "verification_description": "Brief description of what this element represents"
+}}
+
+IMPORTANT:
+- Set success to true
+- verification_selector must be a valid CSS selector that uniquely identifies a success indicator
+- verification_description should explain what the element means (e.g., "Logged in user dashboard", "Success message after form submission")
+- Return ONLY valid JSON, no explanation
+"""
+

@@ -109,7 +109,8 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     INSERT OR IGNORE INTO operation_types (operation, description) VALUES
     ('click', 'Click on an element'),
     ('input_text', 'Input text into an element'),
-    ('scroll', 'Scroll the page or element')
+    ('scroll', 'Scroll the page or element'),
+    ('verify_element', 'Verify element exists on page')
     """
     
     conn.execute(insert_operation_types)
@@ -1462,5 +1463,318 @@ def delete_testing_module(module_id: int, db_path: str = "database.db") -> None:
         conn.rollback()
         raise RuntimeError(f"Failed to delete testing module: {e}")
     
+    finally:
+        conn.close()
+
+#Devesh
+def delete_testing_module(module_id: int, db_path: str = "database.db") -> None:
+    """Delete a testing module and all its mappings.
+    
+    Args:
+        module_id: ID of the testing module to delete
+        db_path: Path to SQLite database file
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        # First delete all mappings
+        delete_mappings_sql = "DELETE FROM map_testing_modules WHERE testing_module_id = ?"
+        cursor = conn.execute(delete_mappings_sql, (module_id,))
+        mappings_deleted = cursor.rowcount
+        
+        # Then delete the module
+        delete_module_sql = "DELETE FROM testing_modules WHERE id = ?"
+        cursor = conn.execute(delete_module_sql, (module_id,))
+        
+        if cursor.rowcount == 0:
+            raise ValueError(f"Testing module with ID {module_id} not found")
+        
+        conn.commit()
+        print(f"Deleted testing module {module_id} and {mappings_deleted} mappings")
+        
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to delete testing module: {e}")
+    
+    finally:
+        conn.close()
+
+
+# Execution Logs Functions
+
+def log_execution_attempt(feature_id: int,
+                         attempt_number: int,
+                         validation_result: Optional[dict] = None,
+                         final_dom_path: Optional[str] = None,
+                         db_path: str = "database.db") -> int:
+    """
+    Log an execution attempt with validation results.
+    
+    Args:
+        feature_id: ID of the feature executed
+        attempt_number: Attempt number (1, 2, 3, etc.)
+        validation_result: Dict with validation results
+        final_dom_path: Path to final DOM file
+        db_path: Path to SQLite database file
+        
+    Returns:
+        int: ID of the created log entry
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        validation_success = None
+        validation_confidence = None
+        validation_reason = None
+        validation_suggestions = None
+        
+        if validation_result:
+            validation_success = validation_result.get('success')
+            validation_confidence = validation_result.get('confidence')
+            validation_reason = validation_result.get('reason')
+            validation_suggestions = validation_result.get('suggestions')
+        
+        insert_sql = """
+        INSERT INTO execution_logs 
+        (feature_id, attempt_number, validation_success, validation_confidence, 
+         validation_reason, validation_suggestions, final_dom_path)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """
+        cursor = conn.execute(insert_sql, (
+            feature_id, attempt_number, validation_success, validation_confidence,
+            validation_reason, validation_suggestions, final_dom_path
+        ))
+        log_id = cursor.lastrowid
+        conn.commit()
+        print(f"✅ Logged execution attempt {attempt_number} for feature_id {feature_id}")
+        return log_id
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to log execution attempt: {e}")
+    finally:
+        conn.close()
+
+
+def get_execution_logs(feature_id: int, db_path: str = "database.db") -> List[dict]:
+    """
+    Get all execution logs for a specific feature.
+    
+    Args:
+        feature_id: ID of the feature
+        db_path: Path to SQLite database file
+        
+    Returns:
+        List[Dict]: List of execution log dictionaries
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        select_sql = """
+        SELECT * FROM execution_logs 
+        WHERE feature_id = ? 
+        ORDER BY execution_timestamp DESC
+        """
+        cursor = conn.execute(select_sql, (feature_id,))
+        rows = cursor.fetchall()
+        
+        logs = []
+        for row in rows:
+            logs.append({
+                'id': row['id'],
+                'feature_id': row['feature_id'],
+                'attempt_number': row['attempt_number'],
+                'execution_timestamp': row['execution_timestamp'],
+                'validation_success': row['validation_success'],
+                'validation_confidence': row['validation_confidence'],
+                'validation_reason': row['validation_reason'],
+                'validation_suggestions': row['validation_suggestions'],
+                'final_dom_path': row['final_dom_path']
+            })
+        return logs
+    except Exception as e:
+        raise RuntimeError(f"Failed to get execution logs: {e}")
+    finally:
+        conn.close()
+
+def add_single_event_to_feature(feature_id: int, event_dict: dict, db_path: str = "database.db") -> int:
+    """
+    Add a single event to an existing feature.
+    
+    Args:
+        feature_id: ID of the existing feature
+        event_dict: Dict with keys: operation_name, step_number, url, html_component, input_text
+        db_path: Path to database
+        
+    Returns:
+        int: ID of created event
+        
+    Raises:
+        RuntimeError: If event creation fails
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        # Get operation type
+        operation_type = get_operation_type_by_name(event_dict['operation_name'], db_path)
+        
+        # Insert event
+        insert_sql = """
+        INSERT INTO events (feature_id, url, html_component, operation_id, input_text, step_number)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """
+        
+        cursor = conn.execute(
+            insert_sql,
+            (
+                feature_id,
+                event_dict.get('url'),
+                event_dict.get('html_component'),
+                operation_type.id,
+                event_dict.get('input_text'),
+                event_dict.get('step_number', 1)
+            )
+        )
+        conn.commit()
+        event_id = cursor.lastrowid
+        print(f"Created event with ID {event_id} for feature_id {feature_id}")
+        return event_id
+        
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to add event to feature: {e}")
+    finally:
+        conn.close()
+
+def get_features_in_module(module_id: int, db_path: str = "database.db") -> List:
+    """
+    Get all features belonging to a module.
+    
+    Returns:
+        List of Feature objects with their events
+    """
+    from model.feature import Feature
+    
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        # Get feature IDs from map_testing_modules
+        select_sql = """
+        SELECT feature_id FROM map_testing_modules 
+        WHERE testing_module_id = ? 
+        ORDER BY step_number
+        """
+        cursor = conn.execute(select_sql, (module_id,))
+        rows = cursor.fetchall()
+        
+        features = []
+        for row in rows:
+            feature_id = row['feature_id']
+            feature = get_feature_by_id(feature_id, db_path)
+            if feature:
+                features.append(feature)
+        
+        return features
+        
+    except Exception as e:
+        print(f"Error getting features in module: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def save_module_execution_report(module_id: int, report_data: dict, db_path: str = "database.db") -> int:
+    """
+    Save module execution report to database.
+    
+    Args:
+        module_id: ID of the module
+        report_data: Dict containing execution results
+        
+    Returns:
+        int: Report ID
+    """
+    import json
+    from datetime import datetime
+    
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        # Create reports table if it doesn't exist
+        create_table_sql = """
+        CREATE TABLE IF NOT EXISTS module_execution_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module_id INTEGER NOT NULL,
+            execution_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            total_features INTEGER,
+            passed_features INTEGER,
+            failed_features INTEGER,
+            report_json TEXT,
+            FOREIGN KEY (module_id) REFERENCES testing_modules(id)
+        )
+        """
+        conn.execute(create_table_sql)
+        
+        # Insert report
+        insert_sql = """
+        INSERT INTO module_execution_reports 
+        (module_id, total_features, passed_features, failed_features, report_json)
+        VALUES (?, ?, ?, ?, ?)
+        """
+        
+        cursor = conn.execute(
+            insert_sql,
+            (
+                module_id,
+                report_data.get('total_features', 0),
+                report_data.get('passed_features', 0),
+                report_data.get('failed_features', 0),
+                json.dumps(report_data)
+            )
+        )
+        conn.commit()
+        return cursor.lastrowid
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"Error saving report: {e}")
+        return 0
+    finally:
+        conn.close()
+
+def delete_verification_event(feature_id: int, db_path: str = "database.db") -> bool:
+    """
+    Delete existing verification event for a feature.
+    Used before updating/regenerating events.
+    
+    Args:
+        feature_id: ID of the feature
+        db_path: Path to database
+        
+    Returns:
+        bool: True if deleted, False if none found
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        # Get verify_element operation_id
+        cursor = conn.execute(
+            "SELECT id FROM operation_types WHERE operation = 'verify_element'"  # ✅ FIXED: operation_types
+        )
+        row = cursor.fetchone()
+        if not row:
+            print(f"[DB] Warning: verify_element operation not found in operation_types table")
+            return False
+        
+        verify_operation_id = row['id']
+        
+        # Delete verification event
+        cursor = conn.execute(
+            "DELETE FROM events WHERE feature_id = ? AND operation_id = ?",
+            (feature_id, verify_operation_id)
+        )
+        conn.commit()
+        
+        deleted_count = cursor.rowcount
+        print(f"[DB] Deleted {deleted_count} verification event(s) for feature_id {feature_id}")
+        
+        return deleted_count > 0
+        
+    except Exception as e:
+        print(f"[DB] Error deleting verification event: {e}")
+        return False
     finally:
         conn.close()

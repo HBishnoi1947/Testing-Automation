@@ -6,7 +6,7 @@ import os
 from model.database import get_events_by_feature_id, clear_all_events_from_sqlite
 from model.operation_type import OperationTypeMapper
 from dotenv import load_dotenv
-from .prompts import get_generate_events_prompt, get_re_generate_events_prompt
+from .prompts import get_generate_events_prompt, get_re_generate_events_prompt, get_validate_execution_prompt
 
 
 class WebAutomationAgent:
@@ -243,6 +243,89 @@ class WebAutomationAgent:
         except Exception as e:
             print(f"[!] Error re-generating events: {e}")
             return {"noOfEvents": 0, "events": [], "error": str(e)}
+
+    def validate_execution_success(self,
+                                    initial_html_path: str,
+                                    final_html_path: str,
+                                    feature_name: str,
+                                    expected_outcome: str = None) -> Dict:
+        """
+        Validate if the executed events were successful by comparing initial and final DOM.
+        Also identifies a success indicator element for future verification.
+        
+        Args:
+            initial_html_path: Path to HTML before event execution
+            final_html_path: Path to HTML after event execution
+            feature_name: Name of the feature being validated
+            expected_outcome: Optional description of expected outcome
+            
+        Returns:
+            Dict with keys:
+                - 'success' (bool)
+                - 'reason' (str)
+                - 'suggestions' (str)
+                - 'verification_selector' (str): CSS selector for verification element
+                - 'verification_description' (str): Description of verification element
+        """
+        try:
+            # Load both HTML files
+            initial_html = self.load_html(initial_html_path)
+            final_html = self.load_html(final_html_path)
+            
+            print(f"[✓] Loaded initial HTML: {len(initial_html)} characters")
+            print(f"[✓] Loaded final HTML: {len(final_html)} characters")
+            
+            # Extract elements from both
+            initial_elements = self.extract_interactive_elements(initial_html)
+            final_elements = self.extract_interactive_elements(final_html)
+            
+            # Format for AI
+            initial_formatted = self.format_elements_for_prompt(initial_elements)
+            final_formatted = self.format_elements_for_prompt(final_elements)
+            
+            # Get validation prompt
+            validation_prompt = get_validate_execution_prompt(
+                feature_name, initial_formatted, final_formatted, expected_outcome
+            )
+            
+            # Get AI validation
+            response = self.model.generate_content(validation_prompt)
+            response_text = response.text.strip()
+            
+            # Clean JSON response
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]
+            if response_text.startswith('```'):
+                response_text = response_text[3:]
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]
+            response_text = response_text.strip()
+            
+            result = json.loads(response_text)
+            
+            # Ensure required fields exist
+            if 'success' not in result:
+                result['success'] = False
+            if 'reason' not in result:
+                result['reason'] = 'Unknown'
+            if 'suggestions' not in result:
+                result['suggestions'] = 'None'
+            if 'verification_selector' not in result:
+                result['verification_selector'] = None
+            if 'verification_description' not in result:
+                result['verification_description'] = 'Verification element'
+            
+            return result
+            
+        except Exception as e:
+            print(f"[!] Error validating execution: {e}")
+            return {
+                'success': False,
+                'reason': f'Validation error: {str(e)}',
+                'suggestions': 'Check the HTML files and try again',
+                'verification_selector': None,
+                'verification_description': None
+            }
 
 # --------------------------- TEST SECTION ---------------------------
 if __name__ == "__main__":
