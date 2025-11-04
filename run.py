@@ -17,7 +17,7 @@ import json
 import asyncio
 from datetime import datetime
 from playwright.async_api import async_playwright
-from event_response_from_ai import WebAutomationAgent
+from ai.event_response_from_ai import WebAutomationAgent
 from model.database import get_events_by_feature_id, update_events, create_events, get_feature_by_id
 
 

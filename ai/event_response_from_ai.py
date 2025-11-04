@@ -6,6 +6,7 @@ import os
 from model.database import get_events_by_feature_id, clear_all_events_from_sqlite
 from model.operation_type import OperationTypeMapper
 from dotenv import load_dotenv
+from .prompts import get_generate_events_prompt, get_re_generate_events_prompt
 
 
 class WebAutomationAgent:
@@ -141,43 +142,7 @@ class WebAutomationAgent:
 
             formatted_elements = self.format_elements_for_prompt(elements)
 
-            system_prompt = f"""
-You are a web automation expert. Analyze the given webpage elements and user instruction to generate a sequence of automation events.
-
-URL: {url}
-
-WEBPAGE ELEMENTS:
-{formatted_elements}
-
-User Instruction: {prompt}
-
-Based on the webpage elements and instruction, generate automation events in this EXACT JSON format:
-{{
-  "noOfEvents": <number>,
-  "feature": "<feature name>",
-  "events": [
-    {{
-      "url": "{url}",
-      "html_component": "<the exact HTML element to target>",
-      "operation_name": "<click|scroll|input_text>",
-      "input_text": "<text to input or null>",
-      "step_number": <number>
-    }}
-  ]
-}}
-
-IMPORTANT RULES:
-1. Use ONLY the HTML elements shown in the webpage elements above.
-2. operationType must be one of: "click", "scroll", or "input".
-3. For "input" operations, provide the text to input as a string.
-4. For "click" and "scroll" operations, set input to null.
-5. Provide clear eventDescription for each step.
-6. Return ONLY valid JSON, no explanation.
-7. The htmlComponent should identify the element clearly (using id, class, text, or combination) so that playwright can locate the element using <page.locator(html_component)> locator strategy. Example: button[type='submit'] or input[name='email'] or div[class='login-button'] or span[text='Login']
-8. Use the most specific element possible.
-9. Order events logically to achieve the goal.
-10. Focus on interactive elements that match the user's instruction.
-"""
+            system_prompt = get_generate_events_prompt(url, formatted_elements, prompt)
 
             response = self.model.generate_content(system_prompt)
             response_text = response.text.strip()
@@ -242,48 +207,9 @@ IMPORTANT RULES:
             # Use feature_name passed as parameter
             print(f"[✓] Using feature name: {feature_name}")
 
-            system_prompt = f"""
-You are a web automation expert. Analyze the given webpage elements, user instruction, and existing events to generate an updated sequence of automation events.
-
-URL: {url}
-FEATURE: {feature_name}
-
-WEBPAGE ELEMENTS:
-{formatted_elements}
-
-EXISTING EVENTS (for context):
-{existing_events_json}
-
-User Instruction: {prompt}
-
-Based on the webpage elements, existing events, and instruction, generate updated automation events in this EXACT JSON format:
-{{
-  "noOfEvents": <number>,
-  "feature": "{feature_name}",
-  "feature_id": {feature_id},
-  "events": [
-    {{
-      "url": "{url}",
-      "html_component": "<the exact HTML element to target>",
-      "operation_name": "<click|scroll|input_text>",
-      "input_text": "<text to input or null>",
-      "step_number": <number>
-    }}
-  ]
-}}
-
-IMPORTANT RULES:
-1. Use ONLY the HTML elements shown in the webpage elements above.
-2. operation_name must be one of: "click", "scroll", or "input_text".
-3. For "input_text" operations, provide the text to input as a string.
-4. For "click" and "scroll" operations, set input_text to null.
-5. The html_component should identify the element clearly (using id, class, text, or combination) so that playwright can locate the element using <page.locator(html_component)> locator strategy. Example: button[type='submit'] or input[name='email'] or div[class='login-button'] or span[text='Login']
-6. Use the most specific element possible.
-7. Order events logically to achieve the goal.
-8. Focus on interactive elements that match the user's instruction.
-9. Consider the existing events as context but generate fresh events based on the current webpage elements and instruction.
-10. Return ONLY valid JSON, no explanation.
-"""
+            system_prompt = get_re_generate_events_prompt(
+                url, feature_name, formatted_elements, existing_events_json, prompt, feature_id
+            )
 
             response = self.model.generate_content(system_prompt)
             response_text = response.text.strip()
