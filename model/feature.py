@@ -10,8 +10,9 @@ from typing import Optional, List, Any
 class Feature:
     """Represents a feature in the system."""
     feature: str
+    project_id: int
     id: Optional[int] = field(default=None, repr=True)
 
     def to_row(self) -> List[Any]:
         """Convert the feature to a row format for database operations."""
-        return [self.id, self.feature]
+        return [self.id, self.feature, self.project_id]
