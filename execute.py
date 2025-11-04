@@ -159,6 +159,167 @@ class EventExecutor:
             
         except Exception as e:
             return {'success': False, 'error': str(e)}
+
+    def execute_module_features(self, features_with_events: List[dict], headless: bool = False) -> dict:
+        """
+        Execute multiple features in a SINGLE browser session.
+        Browser opens once, executes all features sequentially, then closes.
+        After first feature, stays on current page instead of navigating.
+        
+        Args:
+            features_with_events: List of dicts with keys:
+                - 'feature_name': str
+                - 'feature_id': int
+                - 'events': List[Event]
+            headless: Whether to run browser in headless mode
+            
+        Returns:
+            dict: {
+                'success': bool,
+                'total_features': int,
+                'passed_features': int,
+                'failed_features': int,
+                'feature_results': List[dict]
+            }
+        """
+        if not features_with_events:
+            return {
+                'success': True,
+                'total_features': 0,
+                'passed_features': 0,
+                'failed_features': 0,
+                'feature_results': []
+            }
+        
+        try:
+            # Initialize Playwright ONCE for ALL features
+            print(f"\n🌐 Opening browser session for module execution...")
+            self.playwright = sync_playwright().start()
+            self.browser = self.playwright.chromium.launch(headless=headless)
+            self.page = self.browser.new_page()
+            
+            module_results = {
+                'success': True,
+                'total_features': len(features_with_events),
+                'passed_features': 0,
+                'failed_features': 0,
+                'feature_results': []
+            }
+            
+            # Execute each feature WITHOUT closing browser
+            for idx, feature_data in enumerate(features_with_events, 1):
+                feature_name = feature_data.get('feature_name', f'Feature {idx}')
+                events = feature_data.get('events', [])
+                
+                print(f"\n{'='*80}")
+                print(f"📋 FEATURE {idx}/{len(features_with_events)}: {feature_name}")
+                print(f"{'='*80}")
+                
+                # ✅ After first feature, skip navigation (stay on current page)
+                if idx > 1:
+                    print(f"🔗 Continuing from current page: {self.page.url}")
+                    self.skip_navigation = True
+                else:
+                    print(f"🌐 Starting from initial URL")
+                    self.skip_navigation = False
+                
+                if not events:
+                    print(f"⚠️ No events found for feature: {feature_name}")
+                    feature_result = {
+                        'feature_name': feature_name,
+                        'success': False,
+                        'total_events': 0,
+                        'passed_events': 0,
+                        'failed_events': 0,
+                        'event_results': []
+                    }
+                    module_results['failed_features'] += 1
+                    module_results['success'] = False
+                    module_results['feature_results'].append(feature_result)
+                    continue
+                
+                # Execute events for this feature (browser stays open)
+                event_results = []
+                success_count = 0
+                
+                for event_idx, event in enumerate(events, 1):
+                    operation_name = self.operation_mapper.get_operation_name_by_id(event.operation_id)
+                    
+                    event_info = {
+                        'event_number': event_idx,
+                        'step_number': event.step_number,
+                        'operation': operation_name,
+                        'component': event.html_component,
+                        'input': event.input_text,
+                        'success': False,
+                        'error': None
+                    }
+                    
+                    print(f"\n--- Executing Event {event_idx}/{len(events)} ---")
+                    print(f"Operation: {operation_name}")
+                    
+                    try:
+                        self._execute_single_event(event)
+                        success_count += 1
+                        event_info['success'] = True
+                        print(f"✅ Event {event_idx} passed")
+                            
+                    except Exception as e:
+                        event_info['error'] = str(e)
+                        print(f"❌ Event {event_idx} failed: {e}")
+                    
+                    event_results.append(event_info)
+                    time.sleep(1)
+                
+                # Feature result
+                all_passed = success_count == len(events)
+                feature_result = {
+                    'feature_name': feature_name,
+                    'success': all_passed,
+                    'total_events': len(events),
+                    'passed_events': success_count,
+                    'failed_events': len(events) - success_count,
+                    'event_results': event_results
+                }
+                
+                if all_passed:
+                    module_results['passed_features'] += 1
+                    print(f"\n✅ Feature '{feature_name}' PASSED ({success_count}/{len(events)} events)")
+                else:
+                    module_results['failed_features'] += 1
+                    module_results['success'] = False
+                    print(f"\n❌ Feature '{feature_name}' FAILED ({success_count}/{len(events)} events passed)")
+                
+                module_results['feature_results'].append(feature_result)
+            
+            # Reset skip flag
+            self.skip_navigation = False
+            
+            # Keep browser open briefly to see final state
+            if not headless:
+                print(f"\n\n✅ All {len(features_with_events)} features executed in single browser session!")
+                print(f"Browser will close in 3 seconds...")
+                time.sleep(3)
+            
+            return module_results
+            
+        except Exception as e:
+            print(f"❌ Error during module execution: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'success': False,
+                'total_features': len(features_with_events),
+                'passed_features': 0,
+                'failed_features': len(features_with_events),
+                'feature_results': [],
+                'error': str(e)
+            }
+        finally:
+            # Close browser ONCE after ALL features
+            self.skip_navigation = False  # Reset flag
+            self._cleanup()
+            print(f"🌐 Browser session closed.")
     
     def _execute_single_event(self, event: Event):
         """Execute a single event."""
@@ -355,6 +516,40 @@ class EventExecutor:
             
         except Exception as e:
             raise Exception(f"Error scrolling: {e}")
+
+    def _perform_verify_element(self, event: Event):
+        """
+        Perform element verification operation.
+        Checks if specified element exists and is visible.
+        """
+        if not event.html_component:
+            raise ValueError("HTML component is required for verify_element operation")
+        
+        verification_desc = event.input_text or "Verification element"
+        print(f"Verifying element: {event.html_component}")
+        print(f"Description: {verification_desc}")
+        
+        try:
+            # Wait for page to stabilize
+            self.page.wait_for_load_state('networkidle')
+            time.sleep(1)
+            
+            # Try to locate the element
+            locator = self.page.locator(event.html_component)
+            
+            # Check if element exists and is visible
+            if locator.count() > 0:
+                if locator.first.is_visible():
+                    print(f"✅ Verification PASSED - Element found and visible!")
+                    return
+                else:
+                    raise Exception(f"Verification FAILED - Element exists but not visible")
+            else:
+                raise Exception(f"Verification FAILED - Element not found")
+                
+        except Exception as e:
+            print(f"❌ Verification error: {e}")
+            raise Exception(f"Element verification failed: {e}")
     
     def _cleanup(self):
         """Clean up browser resources."""
