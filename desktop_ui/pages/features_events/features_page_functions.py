@@ -2,12 +2,11 @@
 Features page workflows extracted from the main UI.
 """
 
-import threading
-import asyncio
 import tkinter as tk
 from tkinter import messagebox
 
 from run import AutomationRunner
+from desktop_ui.utils.loading_overlay import LoadingOverlay
 
 
 def open_create_feature_dialog(root: tk.Tk, update_status, on_refresh, current_project_id: int):
@@ -66,30 +65,37 @@ def open_create_feature_dialog(root: tk.Tk, update_status, on_refresh, current_p
         input_window.destroy()
         update_status("Starting automation workflow...", 'info')
         
-        # Use the current_project_id directly
-        project_id = current_project_id
-
-        def _run_automation():
-            try:
-                automation_runner = AutomationRunner()
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                success = loop.run_until_complete(automation_runner.run_automation_workflow(url, prompt, project_id))
-                loop.close()
-                def _complete():
-                    if success:
-                        update_status("Automation completed successfully!", 'success')
-                        messagebox.showinfo("Success", "Automation workflow completed successfully!")
-                        if on_refresh:
-                            on_refresh()
-                    else:
-                        update_status("Automation failed", 'error')
-                        messagebox.showerror("Error", "Automation workflow failed!")
-                root.after(0, _complete)
-            except Exception as e:
-                root.after(0, lambda: _automation_error(update_status, str(e)))
-
-        threading.Thread(target=_run_automation, daemon=True).start()
+        # Show loading overlay
+        loading = LoadingOverlay(root)
+        loading.show("Creating new feature...")
+        root.update()  # Force UI update to show overlay
+        
+        try:
+            # Use the current_project_id directly
+            project_id = current_project_id
+            
+            # Run automation workflow synchronously
+            automation_runner = AutomationRunner()
+            result = automation_runner.run_automation_workflow(url, prompt, project_id)
+            
+            # Hide loading overlay
+            loading.hide()
+            root.update()
+            
+            # Check result
+            if result and result.get('success', False):
+                update_status("Automation completed successfully!", 'success')
+                messagebox.showinfo("Success", "Automation workflow completed successfully!")
+                if on_refresh:
+                    on_refresh()
+            else:
+                error_msg = result.get('error', 'Unknown error') if result else 'Automation failed'
+                update_status("Automation failed", 'error')
+                messagebox.showerror("Error", f"Automation workflow failed: {error_msg}")
+        except Exception as e:
+            loading.hide()
+            root.update()
+            _automation_error(update_status, str(e))
 
     def _cancel():
         input_window.destroy()

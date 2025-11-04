@@ -16,7 +16,6 @@ from dotenv import load_dotenv
 import json
 import asyncio
 from datetime import datetime
-from playwright.async_api import async_playwright
 from ai import WebAutomationAgent
 from model.database import get_events_by_feature_id, update_events, create_events
 from execute import EventExecutor 
@@ -38,7 +37,7 @@ class AutomationRunner:
         self.ai_agent = WebAutomationAgent(self.api_key)
         self.event_executor = EventExecutor()
 
-    async def run_automation_workflow(self, target_url: str, prompt: str, project_id: int, dom_output_file: str = None):
+    def run_automation_workflow(self, target_url: str, prompt: str, project_id: int, dom_output_file: str = None):
         """
         Run the complete automation workflow:
         1. Open browser and navigate to URL
@@ -74,30 +73,19 @@ class AutomationRunner:
         print(f"DOM Output: {dom_output_file}")
         
         try:
-            # Step 1: Open browser and navigate to URL
+            # Step 1: Open browser, navigate to URL, and extract DOM
             print("\n📱 Step 1: Opening browser and navigating to URL...")
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=False)
-                page = await browser.new_page()
-                
-                print(f"Navigating to: {target_url}")
-                await page.goto(target_url)
-                await page.wait_for_load_state('networkidle')
-                print("✅ Navigation completed successfully")
-                
-                # Step 2: Extract initial DOM content
-                print("\n🔍 Step 2: Extracting initial DOM content...")
-                html_content = await page.content()
-                
-                with open(dom_output_file, 'w', encoding='utf-8') as f:
-                    f.write(html_content)
-                
-                print(f"✅ Initial DOM saved to: {dom_output_file}")
-                
-                await browser.close()
+            success = self.event_executor.navigate_and_extract_dom(
+                target_url=target_url,
+                dom_output_file=dom_output_file,
+                headless=False
+            )
             
-            # Step 3: Process with AI to generate automation events
-            print("\n🤖 Step 3: Processing with AI to generate automation events...")
+            if not success:
+                return {'success': False, 'error': 'Failed to navigate and extract DOM'}
+            
+            # Step 2: Process with AI to generate automation events
+            print("\n🤖 Step 2: Processing with AI to generate automation events...")
             ai_result = self.ai_agent.generate_events(
                 html_file_path=dom_output_file,
                 url=target_url,
@@ -110,16 +98,15 @@ class AutomationRunner:
                 
             print(f"✅ AI generated {ai_result.get('noOfEvents', 0)} events")
             
-            # Step 4: Save events to database
-            print("\n💾 Step 4: Saving events to database...")
+            # Step 3: Save events to database
+            print("\n💾 Step 3: Saving events to database...")
             self._save_events_to_database(ai_result, project_id)
             feature_name = ai_result.get("feature", "AI Generated Feature")
             print(f"✅ Events saved for feature: {feature_name}")
             
-            # Step 5: Execute events immediately
-            print("\n🎬 Step 5: Executing generated events...")
+            # Step 4: Execute events immediately
+            print("\n🎬 Step 4: Executing generated events...")
             from model.database import get_events_by_feature_id, connect_to_sqlite_database
-            from execute import EventExecutor
             
             # Get feature_id
             conn = connect_to_sqlite_database(self.db_path)
@@ -141,14 +128,11 @@ class AutomationRunner:
             events = get_events_by_feature_id(feature_id, self.db_path)
             print(f"Loaded {len(events)} events for execution")
             
-            # Execute with page object to capture final state
-            executor = EventExecutor(self.db_path)
-            
             # Execute and get final DOM
             print("\n⚡ Executing events...")
             final_dom_path = dom_output_file.replace('.txt', '_final.txt')
             
-            execution_result = await self.event_executor._execute_and_capture_dom(
+            execution_result = self.event_executor._execute_and_capture_dom(
                 events, 
                 final_dom_path
             )
@@ -165,10 +149,8 @@ class AutomationRunner:
             print(f"✅ Events executed, final DOM saved to: {final_dom_path}")
             print(f"✅ Final URL: {final_url}")
             
-            # Step 6: Validate execution with AI
-            # Step 6: Validate execution with AI
-            # Step 6: Validate execution with AI
-            print("\n🔍 Step 6: Validating execution with AI...")
+            # Step 5: Validate execution with AI
+            print("\n🔍 Step 5: Validating execution with AI...")
             validation_result = self.ai_agent.validate_execution_success(
                 initial_html_path=dom_output_file,
                 final_html_path=final_dom_path,
@@ -224,22 +206,20 @@ class AutomationRunner:
             print("=" * 80)
 
             # Return result dict for UI
-            # return {
-            #     'success': final_success,
-            #     'feature_name': feature_name,
-            #     'validation': validation_result
-            # }
-            return True 
+            return {
+                'success': final_success,
+                'feature_name': feature_name,
+                'validation': validation_result
+            }
 
             
         except Exception as e:
             print(f"\n❌ AUTOMATION WORKFLOW FAILED: {e}")
             import traceback
             traceback.print_exc()
-            # return {'success': False, 'error': str(e)}
-            return False
+            return {'success': False, 'error': str(e)}
     
-    async def run_update_automation_workflow(self, target_url: str, prompt: str, feature_id: int, feature_name: str, dom_output_file: str = None):
+    def run_update_automation_workflow(self, target_url: str, prompt: str, feature_id: int, feature_name: str, dom_output_file: str = None):
         """
         Run the update automation workflow WITH VALIDATION:
         1. Open browser and navigate to URL
@@ -279,30 +259,19 @@ class AutomationRunner:
         print(f"DOM Output: {dom_output_file}")
         
         try:
-            # Step 1: Open browser and navigate to URL
+            # Step 1: Open browser, navigate to URL, and extract DOM
             print("\n📱 Step 1: Opening browser and navigating to URL...")
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=False)
-                page = await browser.new_page()
-                
-                print(f"Navigating to: {target_url}")
-                await page.goto(target_url)
-                await page.wait_for_load_state('networkidle')
-                print("✅ Navigation completed successfully")
-                
-                # Step 2: Extract initial DOM content
-                print("\n🔍 Step 2: Extracting initial DOM content...")
-                html_content = await page.content()
-                
-                with open(dom_output_file, 'w', encoding='utf-8') as f:
-                    f.write(html_content)
-                
-                print(f"✅ Initial DOM saved to: {dom_output_file}")
-                
-                await browser.close()
+            success = self.event_executor.navigate_and_extract_dom(
+                target_url=target_url,
+                dom_output_file=dom_output_file,
+                headless=False
+            )
             
-            # Step 3: Load existing events from database for context
-            print("\n📚 Step 3: Loading existing events from database...")
+            if not success:
+                return {'success': False, 'error': 'Failed to navigate and extract DOM'}
+            
+            # Step 2: Load existing events from database for context
+            print("\n📚 Step 2: Loading existing events from database...")
             from model.database import get_events_by_feature_id
             existing_events = get_events_by_feature_id(feature_id)
             
@@ -315,8 +284,8 @@ class AutomationRunner:
             
             print(f"✅ Loaded {len(existing_events)} existing events for regeneration context")
             
-            # Step 4: Process with AI to re-generate automation events
-            print("\n🤖 Step 4: Processing with AI to re-generate automation events...")
+            # Step 3: Process with AI to re-generate automation events
+            print("\n🤖 Step 3: Processing with AI to re-generate automation events...")
             ai_result = self.ai_agent.re_generate_events(
                 html_file_path=dom_output_file,
                 url=target_url,
@@ -333,19 +302,19 @@ class AutomationRunner:
             
             print(f"✅ AI re-generated {ai_result.get('noOfEvents', 0)} events")
             
-            # Step 5: Update events in database
-            print("\n💾 Step 5: Updating events in database...")
+            # Step 4: Update events in database
+            print("\n💾 Step 4: Updating events in database...")
             event_ids = update_events(feature_id, ai_result['events'], self.db_path)
             print(f"✅ Updated {len(event_ids)} events for feature_id {feature_id}")
             
-            # Step 6: Execute regenerated events immediately
-            print("\n🎬 Step 6: Executing regenerated events...")
+            # Step 5: Execute regenerated events immediately
+            print("\n🎬 Step 5: Executing regenerated events...")
             events = get_events_by_feature_id(feature_id, self.db_path)
             print(f"Loaded {len(events)} events for execution")
             
             # Execute and capture final DOM
             final_dom_path = dom_output_file.replace('.txt', '_final.txt')
-            execution_result = await self.event_executor._execute_and_capture_dom(
+            execution_result = self.event_executor._execute_and_capture_dom(
                 events,
                 final_dom_path
             )
@@ -358,13 +327,12 @@ class AutomationRunner:
                     'error': execution_result.get('error', 'Execution failed')
                 }
             
-            print(f"✅ Events executed, final DOM saved to: {final_dom_path}")
             final_url = execution_result.get('final_url', target_url)
             print(f"✅ Events executed, final DOM saved to: {final_dom_path}")
             print(f"✅ Final URL: {final_url}")
             
-            # Step 7: Validate execution with AI
-            print("\n🔍 Step 7: Validating execution with AI...")
+            # Step 6: Validate execution with AI
+            print("\n🔍 Step 6: Validating execution with AI...")
             validation_result = self.ai_agent.validate_execution_success(
                 initial_html_path=dom_output_file,
                 final_html_path=final_dom_path,
@@ -375,8 +343,8 @@ class AutomationRunner:
             print(f"  Success: {validation_result['success']}")
             print(f"  Reason: {validation_result['reason']}")
             
-            # Step 8: Update/create verification event (ALWAYS, even on failure)
-            print("\n💾 Step 8: Updating verification event...")
+            # Step 7: Update/create verification event (ALWAYS, even on failure)
+            print("\n💾 Step 7: Updating verification event...")
             from model.database import delete_verification_event, add_single_event_to_feature
             
             # Determine verification selector with fallback logic
@@ -432,19 +400,17 @@ class AutomationRunner:
             print("=" * 80)
             
             # Return result dict (matching generate_events return format)
-            # return {
-            #     'success': final_success,
-            #     'feature_name': feature_name,
-            #     'validation': validation_result
-            # }
-            return True
+            return {
+                'success': final_success,
+                'feature_name': feature_name,
+                'validation': validation_result
+            }
             
         except Exception as e:
             print(f"\n❌ UPDATE AUTOMATION WORKFLOW FAILED: {e}")
             import traceback
             traceback.print_exc()
-            # return {'success': False, 'error': str(e)}
-            return False
+            return {'success': False, 'error': str(e)}
 
 
 

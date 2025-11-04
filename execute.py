@@ -12,24 +12,181 @@ from dom_extract import save_page_dom_to_file
 
 
 class EventExecutor:
-    """Executes a list of events using Playwright browser automation."""
+    """Executes a list of events using Playwright browser automation.
+    By default, returns a singleton instance. Can create a new instance with new_object=True.
+    """
     
-    def __init__(self, db_path: str = "database.db"):
-        """Initialize the executor with database path."""
+    # Singleton instance
+    _instance = None
+    _initialized = False
+    
+    # Class-level singleton browser instance
+    _singleton_playwright = None
+    _singleton_browser = None
+    _singleton_page = None
+    _singleton_headless = None
+    
+    def __new__(cls, db_path: str = "database.db", new_object: bool = False):
+        """
+        Create or return an instance.
+        
+        Args:
+            db_path: Path to database file
+            new_object: If True, create a new instance instead of returning singleton
+            
+        Returns:
+            EventExecutor instance
+        """
+        if new_object:
+            # Create a new instance (not singleton)
+            new_instance = super(EventExecutor, cls).__new__(cls)
+            new_instance._is_new_instance = True
+            return new_instance
+        else:
+            # Return singleton instance
+            if cls._instance is None:
+                cls._instance = super(EventExecutor, cls).__new__(cls)
+                cls._instance._is_new_instance = False
+            return cls._instance
+    
+    def __init__(self, db_path: str = "database.db", new_object: bool = False):
+        """
+        Initialize the executor with database path.
+        
+        Args:
+            db_path: Path to database file
+            new_object: If True, this is a new instance (not singleton)
+        """
+        # If this is a new instance, always initialize
+        if hasattr(self, '_is_new_instance') and self._is_new_instance:
+            self.playwright = None
+            self.browser = None
+            self.page = None
+            self.db_path = db_path
+            self.operation_mapper = OperationTypeMapper(db_path)
+            self.operation_mapper.load_operation_types()
+            print("🔧 EventExecutor new instance created (not singleton)")
+            return
+        
+        # For singleton: only initialize once
+        if EventExecutor._initialized:
+            return
+        
         self.playwright = None
         self.browser = None
         self.page = None
         self.db_path = db_path
         self.operation_mapper = OperationTypeMapper(db_path)
         self.operation_mapper.load_operation_types()
+        
+        # Mark as initialized
+        EventExecutor._initialized = True
+        print("🔧 EventExecutor singleton instance created")
+    
+    @classmethod
+    def _is_singleton_browser_open(cls) -> bool:
+        """Check if singleton browser is open and connected."""
+        if cls._singleton_browser is None:
+            return False
+        try:
+            return cls._singleton_browser.is_connected()
+        except:
+            return False
+    
+    @classmethod
+    def _get_or_create_singleton_browser(cls, headless: bool = False):
+        """
+        Get or create the singleton browser instance.
+        
+        Args:
+            headless: Whether to launch browser in headless mode (only applies if creating new browser)
+            
+        Returns:
+            tuple: (playwright, browser, page)
+        """
+        # If browser exists and is connected, reuse it
+        if cls._is_singleton_browser_open():
+            print("♻️ Reusing existing singleton browser")
+            return cls._singleton_playwright, cls._singleton_browser, cls._singleton_page
+        
+        # Create new browser
+        print("🌐 Creating new singleton browser")
+        cls._singleton_playwright = sync_playwright().start()
+        cls._singleton_browser = cls._singleton_playwright.chromium.launch(headless=headless)
+        cls._singleton_page = cls._singleton_browser.new_page()
+        cls._singleton_headless = headless
+        
+        return cls._singleton_playwright, cls._singleton_browser, cls._singleton_page
+    
+    @classmethod
+    def _close_singleton_browser(cls):
+        """Close the singleton browser instance."""
+        try:
+            if cls._singleton_browser:
+                cls._singleton_browser.close()
+            if cls._singleton_playwright:
+                cls._singleton_playwright.stop()
+            cls._singleton_browser = None
+            cls._singleton_page = None
+            cls._singleton_playwright = None
+            cls._singleton_headless = None
+            print("🌐 Singleton browser closed")
+        except Exception as e:
+            print(f"Error closing singleton browser: {e}")
+    
+    @classmethod
+    def close_singleton_browser(cls):
+        """Public method to close singleton browser."""
+        cls._close_singleton_browser()
+    
+    def navigate_and_extract_dom(self, target_url: str, dom_output_file: str, headless: bool = False) -> bool:
+        """
+        Navigate to URL and extract DOM content using singleton browser.
+        All navigation logic is handled here.
+        
+        Args:
+            target_url: URL to navigate to
+            dom_output_file: File path to save DOM content
+            headless: Whether to launch browser in headless mode (only applies if creating new browser)
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Get or create singleton browser
+            playwright, browser, page = self._get_or_create_singleton_browser(headless=headless)
+            
+            print(f"Navigating to: {target_url}")
+            page.goto(target_url)
+            page.wait_for_load_state('networkidle')
+            print("✅ Navigation completed successfully")
+            
+            # Extract DOM content
+            print("\n🔍 Extracting DOM content...")
+            html_content = page.content()
+            
+            with open(dom_output_file, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            print(f"✅ DOM saved to: {dom_output_file}")
+            
+            # Don't close browser - keep singleton browser open
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error navigating and extracting DOM: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
     
     def execute_events(self, events: List[Event], headless: bool = False) -> bool:
         """
         Execute a list of events in sequence.
+        Uses singleton browser - reuses existing browser if available.
         
         Args:
             events: List of Event objects to execute
-            headless: Whether to run browser in headless mode
+            headless: Whether to run browser in headless mode (only applies if creating new browser)
             
         Returns:
             bool: True if all events executed successfully, False otherwise
@@ -39,10 +196,8 @@ class EventExecutor:
             return False
         
         try:
-            # Initialize Playwright
-            self.playwright = sync_playwright().start()
-            self.browser = self.playwright.chromium.launch(headless=headless)
-            self.page = self.browser.new_page()
+            # Get or create singleton browser
+            self.playwright, self.browser, self.page = self._get_or_create_singleton_browser(headless=headless)
                   
             print(f"Executing {len(events)} events...")
             
@@ -68,11 +223,7 @@ class EventExecutor:
                 time.sleep(1)
             
             print(f"\n🎯 Execution completed: {success_count}/{len(events)} events successful")
-            
-            # Keep browser open for a moment to see results
-            if not headless:
-                print("Browser will close in 3 seconds...")
-                time.sleep(3)
+            print("🌐 Browser staying open for next execution...")
             
             return success_count == len(events)
             
@@ -80,11 +231,13 @@ class EventExecutor:
             print(f"❌ Error during execution: {e}")
             return False
         finally:
-            self._cleanup()
+            # Don't cleanup - keep browser open (singleton pattern)
+            pass
 
-    async def _execute_and_capture_dom(self, events, final_dom_path: str):
+    def _execute_and_capture_dom(self, events, final_dom_path: str):
         """
-        Execute events and capture final DOM state.
+        Execute events and capture final DOM state (synchronous version).
+        Uses singleton browser - reuses existing browser if available.
         
         Args:
             events: List of events to execute
@@ -94,76 +247,78 @@ class EventExecutor:
             dict: {'success': bool, 'error': str (optional)}
         """
         try:
-            from playwright.async_api import async_playwright
+            # Get or create singleton browser
+            playwright, browser, page = self._get_or_create_singleton_browser(headless=False)
             
-            async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=False)
-                page = await browser.new_page()
+            # Navigate to first event URL
+            if events and events[0].url:
+                page.goto(events[0].url)
+                page.wait_for_load_state('networkidle')
+            # Get operation name
+            from model.operation_type import OperationTypeMapper
+            mapper = OperationTypeMapper()
+            mapper.load_operation_types()
+            
+            # Execute each event
+            for i, event in enumerate(events, 1):
+                print(f"  Executing event {i}/{len(events)}: {event.operation_id}")
                 
-                # Navigate to first event URL
-                if events and events[0].url:
-                    await page.goto(events[0].url)
-                    await page.wait_for_load_state('networkidle')
-                # Get operation name
-                from model.operation_type import OperationTypeMapper
-                mapper = OperationTypeMapper()
-                mapper.load_operation_types()
-                
-                # Execute each event
-                for i, event in enumerate(events, 1):
-                    print(f"  Executing event {i}/{len(events)}: {event.operation_id}")
+                try:
                     
-                    try:
+                    operation_name = mapper.get_operation_name_by_id(event.operation_id)
+                    print("current url", event.url)
+                    print("page url", page.url)
+                    # Navigate if URL changed
+                    current_url = page.url
+                    if self._is_same_url(current_url, event.url)== False:
+                        print("url not same")
+                        page.goto(event.url)
+                        page.wait_for_load_state('networkidle')
+                    
+                    # Execute based on operation type
+                    if operation_name == "click":
+                        locator = page.locator(event.html_component)
+                        locator.click()
+                        print(f"    ✓ Clicked: {event.html_component}")
                         
-                        operation_name = mapper.get_operation_name_by_id(event.operation_id)
-                        print("current url", event.url)
-                        print("page url", page.url)
-                        # Navigate if URL changed
-                        current_url = page.url
-                        if self._is_same_url(current_url, event.url)== False:
-                            print("url not same")
-                            await page.goto(event.url)
-                            await page.wait_for_load_state('networkidle')
-                        
-                        # Execute based on operation type
-                        if operation_name == "click":
-                            locator = page.locator(event.html_component)
-                            await locator.click()
-                            print(f"    ✓ Clicked: {event.html_component}")
-                            
-                        elif operation_name == "input_text":
-                            locator = page.locator(event.html_component)
-                            await locator.fill(event.input_text)
-                            print(f"    ✓ Input text: {event.input_text}")
-                        
-                        # Wait for any navigation/updates
-                        await page.wait_for_load_state('networkidle')
-                        
-                    except Exception as e:
-                        print(f"    ⚠️ Event {i} error: {e}")
-                        continue
-                
-                # Wait for final state
-                print("\n  ⏳ Waiting for final page state...")
-                await page.wait_for_load_state('networkidle')
-                await page.wait_for_timeout(2000)  # Additional 2s for any async operations
-                final_url = page.url
-                print(f"  📍 Final URL: {final_url}")
-                # Capture final DOM
-                await save_page_dom_to_file(page, final_dom_path)
-                
-                await browser.close()
-                
+                    elif operation_name == "input_text":
+                        locator = page.locator(event.html_component)
+                        locator.fill(event.input_text)
+                        print(f"    ✓ Input text: {event.input_text}")
+                    
+                    # Wait for any navigation/updates
+                    page.wait_for_load_state('networkidle')
+                    
+                except Exception as e:
+                    print(f"    ⚠️ Event {i} error: {e}")
+                    continue
+            
+            # Wait for final state
+            print("\n  ⏳ Waiting for final page state...")
+            page.wait_for_load_state('networkidle')
+            time.sleep(4)  # Additional 4s for any async operations
+            final_url = page.url
+            print(f"  📍 Final URL: {final_url}")
+            
+            # Capture final DOM (sync version)
+            html_content = page.content()
+            with open(final_dom_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            print(f"✅ DOM saved to: {final_dom_path}")
+            
+            # Don't close browser - keep singleton browser open
+            print("🌐 Browser staying open (singleton)")
+            
             return {'success': True,
                     'final_url' :final_url}
             
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
-    def execute_module_features(self, features_with_events: List[dict], headless: bool = False) -> dict:
+    def execute_testing_module(self, features_with_events: List[dict], headless: bool = False) -> dict:
         """
         Execute multiple features in a SINGLE browser session.
-        Browser opens once, executes all features sequentially, then closes.
+        Creates its own browser instance (does not use singleton), executes all features sequentially, then closes.
         After first feature, stays on current page instead of navigating.
         
         Args:
@@ -192,8 +347,8 @@ class EventExecutor:
             }
         
         try:
-            # Initialize Playwright ONCE for ALL features
-            print(f"\n🌐 Opening browser session for module execution...")
+            # Create separate browser instance for module execution (not singleton)
+            print(f"\n🌐 Opening separate browser session for module execution...")
             self.playwright = sync_playwright().start()
             self.browser = self.playwright.chromium.launch(headless=headless)
             self.page = self.browser.new_page()
@@ -564,21 +719,6 @@ class EventExecutor:
             print(f"Error during cleanup: {e}")
 
 
-def execute_events(events: List[Event], headless: bool = False) -> bool:
-    """
-    Convenience function to execute a list of events.
-    
-    Args:
-        events: List of Event objects to execute
-        headless: Whether to run browser in headless mode
-        
-    Returns:
-        bool: True if all events executed successfully, False otherwise
-    """
-    executor = EventExecutor()
-    return executor.execute_events(events, headless)
-
-
 def main():
     """Main function for testing."""
     from model.database import get_all_events_from_sqlite
@@ -588,7 +728,8 @@ def main():
     print(f"Loaded {len(events)} events from database")
     
     # Execute events
-    success = execute_events(events, headless=False)
+    executor = EventExecutor()
+    success = executor.execute_events(events, headless=False)
     
     if success:
         print("🎉 All events executed successfully!")

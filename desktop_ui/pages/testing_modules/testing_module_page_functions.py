@@ -7,7 +7,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 from model.database import get_events_by_feature_id
-from execute import execute_events
+from execute import EventExecutor
 
 
 def run_testing_module(root: tk.Tk, update_status, features_page, module, flow, on_complete=None):
@@ -24,7 +24,6 @@ def run_testing_module(root: tk.Tk, update_status, features_page, module, flow, 
     """
     import threading
     from tkinter import messagebox
-    from execute import execute_events
     from model.database import get_events_by_feature_id, save_module_execution_report
     from datetime import datetime
     
@@ -107,9 +106,8 @@ def run_testing_module(root: tk.Tk, update_status, features_page, module, flow, 
             print(f"{'='*80}\n")
             
             # ✅ STEP 2: Execute ALL features in ONE browser session
-            from execute import EventExecutor
-            executor = EventExecutor()
-            module_execution_result = executor.execute_module_features(features_with_events, headless=False)
+            executor = EventExecutor(new_object=True)
+            module_execution_result = executor.execute_testing_module(features_with_events, headless=False)
             
             # ✅ STEP 3: Build final results from module execution
             module_results = {
