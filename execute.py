@@ -344,6 +344,8 @@ class EventExecutor:
             self._perform_input_text(event)
         elif operation_name == "scroll":
             self._perform_scroll(event)
+        elif operation_name == "verify_element":
+            self._perform_verify_element(event)
         else:
             print(f"Unknown operation type: {operation_name}")
             raise ValueError(f"Unknown operation type: {operation_name}")
