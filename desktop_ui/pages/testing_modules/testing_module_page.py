@@ -70,7 +70,7 @@ class TestingModulePage:
         header_frame.pack(fill=tk.X, pady=(0, 10))
         
         title_label = tk.Label(header_frame,
-                              text="🧪 Testing Module Manager",
+                              text="Testing Module Manager",
                               font=('Segoe UI', 20, 'bold'),
                               fg=self.colors['primary'],
                               bg=self.colors['background'])

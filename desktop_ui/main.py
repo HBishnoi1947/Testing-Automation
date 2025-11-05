@@ -35,7 +35,7 @@ class DesktopUI:
     def initialize_main_window(self):
         """Initialize the main application window after splash screen."""
         self.root = tk.Tk()
-        self.root.title("🚀 Testing Automation - Modern UI")
+        self.root.title("Flowgen Automation Tool")
         # Set window to fullscreen
         self.root.state('zoomed')  # Maximized on Windows
         self.root.minsize(1200, 800)
@@ -347,7 +347,7 @@ class DesktopUI:
         title_frame.pack(fill=tk.X)
         
         title_label = tk.Label(title_frame, 
-                              text=f"🚀 {self.current_project.name}", 
+                              text=f"📦 {self.current_project.name}", 
                               font=('Segoe UI', 24, 'bold'),
                               fg=self.colors['primary'],
                               bg=self.colors['background'])
