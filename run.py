@@ -178,7 +178,7 @@ class AutomationRunner:
                 verification_event = {
                 "operation_name": "verify_element",
                 "step_number": last_step + 1,
-                "url": final_url,  
+                "url": "",  
                 "html_component": verification_selector,
                 "input_text": None,
             }
@@ -222,7 +222,7 @@ class AutomationRunner:
     def run_update_automation_workflow(self, target_url: str, prompt: str, feature_id: int, feature_name: str, dom_output_file: str = None):
         """
         Run the update automation workflow WITH VALIDATION:
-        1. Open browser and navigate to URL
+        1. Open browser and navigate to URL if not empty string
         2. Extract DOM content
         3. Load existing events from database
         4. Process with AI to re-generate events using existing events as context
@@ -356,7 +356,6 @@ class AutomationRunner:
                 verification_desc = validation_result.get('verification_description', 'AI-identified verification element')
                 print(f"  ✓ Using AI-identified verification selector: {verification_selector}")
             
-            # Priority 3: Ultimate fallback
             else:
                 raise Exception("No verification selector provided")
             
@@ -372,7 +371,7 @@ class AutomationRunner:
                 verification_event = {
                     "operation_name": "verify_element",
                     "step_number": last_step + 1,
-                    "url": final_url,
+                    "url": "",
                     "html_component": verification_selector,
                     "input_text": None
                 }

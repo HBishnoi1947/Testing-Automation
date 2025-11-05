@@ -96,6 +96,20 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     )
     """
     
+    # Create module_execution_reports table
+    create_module_execution_reports_table = """
+    CREATE TABLE IF NOT EXISTS module_execution_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        module_id INTEGER NOT NULL,
+        execution_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        total_features INTEGER,
+        passed_features INTEGER,
+        failed_features INTEGER,
+        report_json TEXT,
+        FOREIGN KEY (module_id) REFERENCES testing_modules(id)
+    )
+    """
+    
     # Execute table creation
     conn.execute(create_projects_table)
     conn.execute(create_features_table)
@@ -103,6 +117,7 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     conn.execute(create_events_table)
     conn.execute(create_testing_module_table)
     conn.execute(create_map_testing_module_table)
+    conn.execute(create_module_execution_reports_table)
     
     # Insert predefined operation types if they don't exist
     insert_operation_types = """
@@ -1433,39 +1448,6 @@ def reorder_testing_module_step(mapping_id: int, new_step_number: int, db_path: 
     finally:
         conn.close()
 
-
-def delete_testing_module(module_id: int, db_path: str = "database.db") -> None:
-    """Delete a testing module and all its mappings.
-    
-    Args:
-        module_id: ID of the testing module to delete
-        db_path: Path to SQLite database file
-    """
-    conn = connect_to_sqlite_database(db_path)
-    
-    try:
-        # First delete all mappings
-        delete_mappings_sql = "DELETE FROM map_testing_modules WHERE testing_module_id = ?"
-        cursor = conn.execute(delete_mappings_sql, (module_id,))
-        mappings_deleted = cursor.rowcount
-        
-        # Then delete the module
-        delete_module_sql = "DELETE FROM testing_modules WHERE id = ?"
-        cursor = conn.execute(delete_module_sql, (module_id,))
-        
-        if cursor.rowcount == 0:
-            raise ValueError(f"Testing module with ID {module_id} not found")
-        
-        conn.commit()
-        print(f"Deleted testing module {module_id} and {mappings_deleted} mappings")
-        
-    except Exception as e:
-        conn.rollback()
-        raise RuntimeError(f"Failed to delete testing module: {e}")
-    
-    finally:
-        conn.close()
-
 #Devesh
 def delete_testing_module(module_id: int, db_path: str = "database.db") -> None:
     """Delete a testing module and all its mappings.
@@ -1482,6 +1464,11 @@ def delete_testing_module(module_id: int, db_path: str = "database.db") -> None:
         cursor = conn.execute(delete_mappings_sql, (module_id,))
         mappings_deleted = cursor.rowcount
         
+        # Delete all execution reports for this module
+        delete_reports_sql = "DELETE FROM module_execution_reports WHERE module_id = ?"
+        cursor = conn.execute(delete_reports_sql, (module_id,))
+        reports_deleted = cursor.rowcount
+        
         # Then delete the module
         delete_module_sql = "DELETE FROM testing_modules WHERE id = ?"
         cursor = conn.execute(delete_module_sql, (module_id,))
@@ -1490,7 +1477,7 @@ def delete_testing_module(module_id: int, db_path: str = "database.db") -> None:
             raise ValueError(f"Testing module with ID {module_id} not found")
         
         conn.commit()
-        print(f"Deleted testing module {module_id} and {mappings_deleted} mappings")
+        print(f"Deleted testing module {module_id}, {mappings_deleted} mappings, and {reports_deleted} execution reports")
         
     except Exception as e:
         conn.rollback()
@@ -1694,21 +1681,6 @@ def save_module_execution_report(module_id: int, report_data: dict, db_path: str
     
     conn = connect_to_sqlite_database(db_path)
     try:
-        # Create reports table if it doesn't exist
-        create_table_sql = """
-        CREATE TABLE IF NOT EXISTS module_execution_reports (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            module_id INTEGER NOT NULL,
-            execution_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            total_features INTEGER,
-            passed_features INTEGER,
-            failed_features INTEGER,
-            report_json TEXT,
-            FOREIGN KEY (module_id) REFERENCES testing_modules(id)
-        )
-        """
-        conn.execute(create_table_sql)
-        
         # Insert report
         insert_sql = """
         INSERT INTO module_execution_reports 

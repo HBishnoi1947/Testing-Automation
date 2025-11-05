@@ -36,7 +36,8 @@ class DesktopUI:
         """Initialize the main application window after splash screen."""
         self.root = tk.Tk()
         self.root.title("🚀 Testing Automation - Modern UI")
-        self.root.geometry("1400x900")
+        # Set window to fullscreen
+        self.root.state('zoomed')  # Maximized on Windows
         self.root.minsize(1200, 800)
         
         # Modern color scheme
@@ -79,9 +80,6 @@ class DesktopUI:
         
         # Show project selection screen first
         self.show_project_selection()
-        
-        # Center window
-        self.center_window()
         
         # Start the main loop
         self.root.mainloop()

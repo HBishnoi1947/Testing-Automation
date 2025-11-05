@@ -341,7 +341,10 @@ class EventExecutor:
         print("🌐 Creating new singleton browser")
         cls._singleton_playwright = sync_playwright().start()
         cls._singleton_browser = cls._singleton_playwright.chromium.launch(headless=headless)
-        cls._singleton_page = cls._singleton_browser.new_page()
+        
+        # Create browser context without viewport constraint (browser opens at normal/default size)
+        context = cls._singleton_browser.new_context(no_viewport=True)
+        cls._singleton_page = context.new_page()
         cls._singleton_headless = headless
         
         return cls._singleton_playwright, cls._singleton_browser, cls._singleton_page
@@ -385,17 +388,14 @@ class EventExecutor:
             playwright, browser, page = self._get_or_create_singleton_browser(headless=headless)
             
             print(f"Navigating to: {target_url}")
-            page.goto(target_url)
-            page.wait_for_load_state('networkidle')
-            print("✅ Navigation completed successfully")
+            if target_url != "":
+                page.goto(target_url)
+                page.wait_for_load_state('networkidle')
+                print("✅ Navigation completed successfully")
             
             # Extract DOM content
             print("\n🔍 Extracting DOM content...")
-            html_content = page.content()
-            
-            with open(dom_output_file, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-            
+            save_page_dom_to_file(page, dom_output_file)
             print(f"✅ DOM saved to: {dom_output_file}")
             
             # Don't close browser - keep singleton browser open
@@ -480,8 +480,9 @@ class EventExecutor:
             
             # Navigate to first event URL
             if events and events[0].url:
-                page.goto(events[0].url)
-                page.wait_for_load_state('networkidle')
+                if events[0].url != "":
+                    page.goto(events[0].url)
+                    page.wait_for_load_state('networkidle')
             # Get operation name
             from model.operation_type import OperationTypeMapper
             mapper = OperationTypeMapper()
@@ -518,9 +519,7 @@ class EventExecutor:
             print(f"  📍 Final URL: {final_url}")
             
             # Capture final DOM (sync version)
-            html_content = page.content()
-            with open(final_dom_path, 'w', encoding='utf-8') as f:
-                f.write(html_content)
+            save_page_dom_to_file(page, final_dom_path)
             print(f"✅ DOM saved to: {final_dom_path}")
             
             # Don't close browser - keep singleton browser open
@@ -568,7 +567,9 @@ class EventExecutor:
             print(f"\n🌐 Opening separate browser session for module execution...")
             self.playwright = sync_playwright().start()
             self.browser = self.playwright.chromium.launch(headless=headless)
-            self.page = self.browser.new_page()
+            # Create browser context without viewport constraint (browser opens at normal/default size)
+            context = self.browser.new_context(no_viewport=True)
+            self.page = context.new_page()
             
             module_results = {
                 'success': True,
@@ -700,8 +701,9 @@ class EventExecutor:
             current_url = self.page.url
             if not self._is_same_url(current_url, event.url):
                 print(f"Navigating to: {event.url}")
-                self.page.goto(event.url)
-                self.page.wait_for_load_state("networkidle")
+                if event.url != "":
+                    self.page.goto(event.url)
+                    self.page.wait_for_load_state("networkidle")
             else:
                 print(f"Already on {event.url}, skipping navigation")
         

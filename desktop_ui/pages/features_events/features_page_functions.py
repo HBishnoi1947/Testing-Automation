@@ -24,42 +24,77 @@ def open_create_feature_dialog(root: tk.Tk, update_status, on_refresh, current_p
     
     input_window = tk.Toplevel(root)
     input_window.title("Create New Feature")
-    input_window.geometry("500x350")
+    input_window.geometry("500x420")
     input_window.configure(bg='white')
     input_window.transient(root)
     input_window.grab_set()
 
     x = root.winfo_x() + (root.winfo_width() // 2) - 250
-    y = root.winfo_y() + (root.winfo_height() // 2) - 175
+    y = root.winfo_y() + (root.winfo_height() // 2) - 210
     input_window.geometry(f"+{x}+{y}")
 
     main_frame = tk.Frame(input_window, bg='white')
-    main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+    main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=15)
 
     title_label = tk.Label(main_frame, text="Create New Feature", font=('Arial', 16, 'bold'), fg='#2c3e50', bg='white')
     title_label.pack(pady=(0, 20))
 
+    # Create URL entry first so it can be referenced in checkbox command
+    url_entry = tk.Entry(main_frame, font=('Arial', 10), width=60)
+    
+    no_nav_var = tk.BooleanVar()
+    no_nav_checkbox = tk.Checkbutton(
+        main_frame, 
+        text="Use no navigation", 
+        variable=no_nav_var,
+        font=('Arial', 10),
+        bg='white',
+        fg='#2c3e50',
+        selectcolor='#ecf0f1',
+        activebackground='white',
+        activeforeground='#2c3e50',
+        command=lambda: _on_no_nav_toggle(no_nav_var.get(), url_entry)
+    )
+    no_nav_checkbox.pack(anchor=tk.W, pady=(0, 10))
+
     url_label = tk.Label(main_frame, text="Target URL:", font=('Arial', 10, 'bold'), fg='#2c3e50', bg='white')
     url_label.pack(anchor=tk.W, pady=(0, 5))
 
-    url_entry = tk.Entry(main_frame, font=('Arial', 10), width=60)
     url_entry.pack(fill=tk.X, pady=(0, 15))
 
     prompt_label = tk.Label(main_frame, text="Automation Prompt:", font=('Arial', 10, 'bold'), fg='#2c3e50', bg='white')
     prompt_label.pack(anchor=tk.W, pady=(0, 5))
 
     prompt_text = tk.Text(main_frame, font=('Arial', 10), height=6, width=60, wrap=tk.WORD)
-    prompt_text.pack(fill=tk.BOTH, expand=True, pady=(0, 20))
+    prompt_text.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
 
     buttons_frame = tk.Frame(main_frame, bg='white')
-    buttons_frame.pack(fill=tk.X, pady=(10, 0))
+    buttons_frame.pack(fill=tk.X, pady=(15, 5), anchor=tk.S)
+
+    def _on_no_nav_toggle(is_checked, entry):
+        """Handle no navigation checkbox toggle."""
+        if is_checked:
+            entry.delete(0, tk.END)
+            entry.config(state=tk.DISABLED)
+        else:
+            entry.config(state=tk.NORMAL)
 
     def _start_automation():
-        url = url_entry.get().strip()
+        # Use empty string if no navigation is selected, otherwise get URL from entry
+        if no_nav_var.get():
+            url = ""
+        else:
+            url = url_entry.get().strip()
+        
         prompt = prompt_text.get("1.0", tk.END).strip()
         
-        if not url or not prompt:
-            messagebox.showerror("Error", "Please enter both URL and prompt!")
+        if not prompt:
+            messagebox.showerror("Error", "Please enter automation prompt!")
+            return
+        
+        # URL validation only if no navigation is not selected
+        if not no_nav_var.get() and not url:
+            messagebox.showerror("Error", "Please enter target URL!")
             return
 
         input_window.destroy()
