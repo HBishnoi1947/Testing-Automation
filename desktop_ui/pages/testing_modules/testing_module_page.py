@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 from typing import List, Optional, Dict, Any
 from model.database import (
-    get_all_testing_modules, create_testing_module, get_testing_module_flow,
+    get_all_testing_modules, get_testing_modules_by_project, create_testing_module, get_testing_module_flow,
     add_feature_to_testing_module,
     remove_from_testing_module, clear_testing_module_flow, delete_testing_module,
     reorder_testing_module_step
@@ -356,8 +356,11 @@ class TestingModulePage:
     def load_data(self):
         """Load all data from database."""
         try:
-            # Load testing modules
-            self.testing_modules = get_all_testing_modules()
+            # Load testing modules - filter by project if project_id is provided
+            if self.project_id:
+                self.testing_modules = get_testing_modules_by_project(self.project_id)
+            else:
+                self.testing_modules = get_all_testing_modules()
             self.update_modules_display()
             
             # Load features - filter by project if project_id is provided
@@ -469,12 +472,16 @@ class TestingModulePage:
     
     def create_new_module(self):
         """Create a new testing module."""
+        if not self.project_id:
+            messagebox.showerror("Error", "No project selected. Please select a project first.")
+            return
+        
         module_name = simpledialog.askstring("New Testing Module", "Enter module name:")
         if not module_name:
             return
         
         try:
-            module_id = create_testing_module(module_name)
+            module_id = create_testing_module(module_name, self.project_id)
             # Refresh modules list
             self.load_data()
             messagebox.showinfo("Success", f"Created testing module '{module_name}' successfully!")

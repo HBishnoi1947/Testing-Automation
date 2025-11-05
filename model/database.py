@@ -80,7 +80,9 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     create_testing_module_table = """
     CREATE TABLE IF NOT EXISTS testing_modules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        testing_module TEXT NOT NULL UNIQUE
+        testing_module TEXT NOT NULL UNIQUE,
+        project_id INTEGER NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
     )
     """
     
@@ -1161,11 +1163,12 @@ def get_features_count_by_project(project_id: int, db_path: str = "database.db")
 
 # Testing Module Functions
 
-def create_testing_module(module_name: str, db_path: str = "database.db") -> int:
+def create_testing_module(module_name: str, project_id: int, db_path: str = "database.db") -> int:
     """Create a new testing module and return its ID.
     
     Args:
         module_name: Name of the testing module
+        project_id: ID of the project this module belongs to
         db_path: Path to SQLite database file
         
     Returns:
@@ -1174,13 +1177,20 @@ def create_testing_module(module_name: str, db_path: str = "database.db") -> int
     conn = connect_to_sqlite_database(db_path)
     
     try:
+        # Validate project_id exists
+        check_project_sql = "SELECT 1 FROM projects WHERE id = ?"
+        cursor = conn.execute(check_project_sql, (project_id,))
+        result = cursor.fetchone()
+        if not result:
+            raise ValueError(f"Project ID {project_id} does not exist in the database.")
+        
         # Insert testing module
-        insert_sql = "INSERT INTO testing_modules (testing_module) VALUES (?)"
-        cursor = conn.execute(insert_sql, (module_name,))
+        insert_sql = "INSERT INTO testing_modules (testing_module, project_id) VALUES (?, ?)"
+        cursor = conn.execute(insert_sql, (module_name, project_id))
         module_id = cursor.lastrowid
         conn.commit()
         
-        print(f"Created testing module '{module_name}' with ID {module_id}")
+        print(f"Created testing module '{module_name}' with ID {module_id} for project {project_id}")
         return module_id
         
     except Exception as e:
@@ -1198,19 +1208,45 @@ def get_all_testing_modules(db_path: str = "database.db") -> List[dict]:
         db_path: Path to SQLite database file
         
     Returns:
-        List[dict]: List of testing module dictionaries
+        List[dict]: List of testing module dictionaries with id, testing_module, and project_id
     """
     conn = connect_to_sqlite_database(db_path)
     
     try:
-        select_sql = "SELECT id, testing_module FROM testing_modules ORDER BY id"
+        select_sql = "SELECT id, testing_module, project_id FROM testing_modules ORDER BY id"
         cursor = conn.execute(select_sql)
         rows = cursor.fetchall()
         
-        return [{'id': row['id'], 'testing_module': row['testing_module']} for row in rows]
+        return [{'id': row['id'], 'testing_module': row['testing_module'], 'project_id': row['project_id']} for row in rows]
         
     except Exception as e:
         raise RuntimeError(f"Failed to get testing modules: {e}")
+    
+    finally:
+        conn.close()
+
+
+def get_testing_modules_by_project(project_id: int, db_path: str = "database.db") -> List[dict]:
+    """Get all testing modules for a specific project.
+    
+    Args:
+        project_id: ID of the project
+        db_path: Path to SQLite database file
+        
+    Returns:
+        List[dict]: List of testing module dictionaries with id, testing_module, and project_id
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        select_sql = "SELECT id, testing_module, project_id FROM testing_modules WHERE project_id = ? ORDER BY id"
+        cursor = conn.execute(select_sql, (project_id,))
+        rows = cursor.fetchall()
+        
+        return [{'id': row['id'], 'testing_module': row['testing_module'], 'project_id': row['project_id']} for row in rows]
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to get testing modules for project: {e}")
     
     finally:
         conn.close()
