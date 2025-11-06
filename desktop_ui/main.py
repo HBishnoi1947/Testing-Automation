@@ -35,7 +35,7 @@ class DesktopUI:
     def initialize_main_window(self):
         """Initialize the main application window after splash screen."""
         self.root = tk.Tk()
-        self.root.title("Flowgen Automation Tool")
+        self.root.title("Evently Automation Tool")
         # Set window to fullscreen
         self.root.state('zoomed')  # Maximized on Windows
         self.root.minsize(1200, 800)

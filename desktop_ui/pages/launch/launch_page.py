@@ -50,7 +50,7 @@ class LaunchAnimationWindow:
         # App title
         self.title_label = tk.Label(
             self.logo_frame,
-            text="Flowgen",
+            text="Evently",
             font=('Segoe UI', 24, 'bold'),
             bg='#1a1a2e',
             fg='#ffffff'
