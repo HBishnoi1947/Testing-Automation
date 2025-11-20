@@ -573,7 +573,7 @@ class EventExecutor:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
-    def execute_testing_module(self, features_with_events: List[dict], headless: bool = False) -> dict:
+    def execute_testing_module(self, features_with_events: List[dict], headless: bool = False, browser: str = "chromium") -> dict:
         """
         Execute multiple features in a SINGLE browser session.
         Creates its own browser instance (does not use singleton), executes all features sequentially, then closes.
@@ -608,7 +608,16 @@ class EventExecutor:
             # Create separate browser instance for module execution (not singleton)
             print(f"\n🌐 Opening separate browser session for module execution...")
             self.playwright = sync_playwright().start()
-            self.browser = self.playwright.chromium.launch(headless=headless)
+            if browser == "chromium":
+                self.browser = self.playwright.chromium.launch(headless=headless)
+            elif browser == "firefox":
+                self.browser = self.playwright.firefox.launch(headless=headless)
+            elif browser == "edge":
+                # Edge is Chromium-based, use chromium with msedge channel
+                self.browser = self.playwright.chromium.launch(headless=headless, channel="msedge")
+            else:
+                raise ValueError(f"Invalid browser: {browser}")
+            
             # Create browser context without viewport constraint (browser opens at normal/default size)
             context = self.browser.new_context(no_viewport=True)
             self.page = context.new_page()

@@ -333,9 +333,9 @@ class DesktopUI:
             project_id=project_id
         )
     
-    def on_run_module(self, module, flow):
+    def on_run_module(self, module, flow, browser="chromium"):
         """Handle run module request from testing module page."""
-        tm_run_testing_module(self.root, self.update_status, None, module, flow)
+        tm_run_testing_module(self.root, self.update_status, None, module, flow, browser)
     
     def create_header(self, parent):
         """Create the modern header section."""

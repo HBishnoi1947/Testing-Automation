@@ -37,6 +37,7 @@ class TestingModulePage:
         self.current_module = None
         self.module_flow = []  # Current module's flow
         self.features = []  # Available features
+        self.selected_browser = "chromium"  # Default browser selection
         
         # Create UI components
         self.create_widgets()
@@ -275,6 +276,28 @@ class TestingModulePage:
         flow_scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.flow_tree.yview)
         flow_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.flow_tree.configure(yscrollcommand=flow_scrollbar.set)
+        
+        # Browser selection frame
+        browser_selection_frame = tk.Frame(flow_content, bg=self.colors['surface'])
+        browser_selection_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        browser_label = tk.Label(browser_selection_frame,
+                                text="🌐 Browser:",
+                                font=('Segoe UI', 9),
+                                fg=self.colors['text'],
+                                bg=self.colors['surface'])
+        browser_label.pack(side=tk.LEFT, padx=(0, 10))
+        
+        self.browser_var = tk.StringVar(value="chromium")
+        browser_options = ["chromium", "firefox", "edge"]
+        self.browser_combobox = ttk.Combobox(browser_selection_frame,
+                                           textvariable=self.browser_var,
+                                           values=browser_options,
+                                           state="readonly",
+                                           width=15,
+                                           font=('Segoe UI', 9))
+        self.browser_combobox.pack(side=tk.LEFT)
+        self.browser_combobox.bind('<<ComboboxSelected>>', self.on_browser_change)
         
         # Flow count and action buttons - Fixed layout for full screen
         flow_bottom_frame = tk.Frame(flow_content, bg=self.colors['surface'], height=50)
@@ -657,15 +680,22 @@ class TestingModulePage:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to remove item: {e}")
     
+    def on_browser_change(self, event=None):
+        """Handle browser selection change."""
+        self.selected_browser = self.browser_var.get()
+    
     def run_module(self):
         """Run the current testing module."""
         if not self.current_module or not self.module_flow:
             messagebox.showwarning("Warning", "No module selected or no flow items to run!")
             return
         
-        # Call the callback function
+        # Get selected browser
+        browser = self.browser_var.get()
+        
+        # Call the callback function with browser parameter
         if self.on_run_module_callback:
-            self.on_run_module_callback(self.current_module, self.module_flow)
+            self.on_run_module_callback(self.current_module, self.module_flow, browser)
     
     def refresh_data(self):
         """Refresh all data from database."""

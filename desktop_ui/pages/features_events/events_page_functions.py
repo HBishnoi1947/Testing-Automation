@@ -57,7 +57,7 @@ def update_feature_workflow(root: tk.Tk, update_status, feature, events: List):
         messagebox.showwarning("Warning", "No feature selected or no events to update!")
         return
 
-    first_event_url = events[0].url if events and events[0].url else "https://example.com"
+    first_event_url = events[0].url if events and events[0].url else ""
 
     update_window = tk.Toplevel(root)
     update_window.title("Update Feature")
