@@ -36,6 +36,36 @@ class AutomationRunner:
         self.db_path = db_path
         self.ai_agent = WebAutomationAgent(self.api_key)
         self.event_executor = EventExecutor()
+    
+    @staticmethod
+    def _get_dom_output_path(target_url: str, dom_output_file: str = None, suffix: str = "") -> str:
+        """
+        Generate or process DOM output file path, ensuring it's saved in the dom folder.
+        
+        Args:
+            target_url: URL to extract domain from (used if dom_output_file is None)
+            dom_output_file: Optional file path. If None, generates filename from target_url
+            suffix: Optional suffix to add to generated filename (e.g., "_update")
+            
+        Returns:
+            str: Full path to DOM output file in dom folder
+        """
+        # Generate default filename if not provided
+        if dom_output_file is None:
+            from urllib.parse import urlparse
+            parsed_url = urlparse(target_url)
+            domain = parsed_url.netloc.replace('www.', '').replace('.', '_')
+            current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+            dom_output_file = f"{domain}{suffix}_{current_time}.txt"
+        
+        # Ensure dom folder exists and update path
+        dom_folder = "dom"
+        os.makedirs(dom_folder, exist_ok=True)
+        # Only add dom folder if not already in the path
+        if not dom_output_file.startswith(dom_folder + os.sep) and not dom_output_file.startswith(dom_folder + "/"):
+            dom_output_file = os.path.join(dom_folder, os.path.basename(dom_output_file))
+        
+        return dom_output_file
 
     def run_automation_workflow(self, target_url: str, prompt: str, project_id: int, dom_output_file: str = None):
         """
@@ -57,13 +87,8 @@ class AutomationRunner:
         Returns:
             dict: {'success': bool, 'feature_name': str, 'validation': dict}
         """
-        # Generate default filename if not provided
-        if dom_output_file is None:
-            from urllib.parse import urlparse
-            parsed_url = urlparse(target_url)
-            domain = parsed_url.netloc.replace('www.', '').replace('.', '_')
-            current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-            dom_output_file = f"{domain}_{current_time}.txt"
+        # Get DOM output file path in dom folder
+        dom_output_file = self._get_dom_output_path(target_url, dom_output_file)
         
         print("=" * 80)
         print("🚀 STARTING AUTOMATION WORKFLOW WITH VALIDATION")
@@ -241,13 +266,8 @@ class AutomationRunner:
         Returns:
             dict: {'success': bool, 'feature_name': str, 'validation': dict}
         """
-        # Generate default filename if not provided
-        if dom_output_file is None:
-            from urllib.parse import urlparse
-            parsed_url = urlparse(target_url)
-            domain = parsed_url.netloc.replace('www.', '').replace('.', '_')
-            current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-            dom_output_file = f"{domain}_update_{current_time}.txt"
+        # Get DOM output file path in dom folder
+        dom_output_file = self._get_dom_output_path(target_url, dom_output_file, suffix="_update")
         
         print("=" * 80)
         print("🔄 STARTING UPDATE AUTOMATION WORKFLOW WITH VALIDATION")
@@ -347,6 +367,9 @@ class AutomationRunner:
             print("\n💾 Step 7: Updating verification event...")
             from model.database import delete_verification_event, add_single_event_to_feature
             
+            # Delete old verification event if exists
+            delete_verification_event(feature_id, self.db_path)
+            
             # Determine verification selector with fallback logic
             verification_selector = None
             verification_desc = None
@@ -361,8 +384,6 @@ class AutomationRunner:
             
             # Always create/update verification event
             if verification_selector:
-                # Delete old verification event if exists
-                delete_verification_event(feature_id, self.db_path)
                 
                 # Get the step number for verification event (last step + 1)
                 last_step = len(ai_result['events'])
