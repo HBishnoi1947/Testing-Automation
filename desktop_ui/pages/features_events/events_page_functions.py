@@ -7,7 +7,7 @@ from tkinter import messagebox
 from typing import List
 
 from execute import EventExecutor
-from run import AutomationRunner
+from automation_runner import AutomationRunner
 from desktop_ui.utils.loading_overlay import LoadingOverlay
 
 

@@ -5,7 +5,7 @@ Features page workflows extracted from the main UI.
 import tkinter as tk
 from tkinter import messagebox
 
-from run import AutomationRunner
+from automation_runner import AutomationRunner
 from desktop_ui.utils.loading_overlay import LoadingOverlay
 
 

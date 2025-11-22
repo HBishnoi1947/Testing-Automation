@@ -16,7 +16,7 @@ from model.operation_type import OperationTypeMapper
 from model.project import Project
 
 # Import page components
-from pages import FeaturesPage, EventsPage, TestingModulePage
+from desktop_ui.pages import FeaturesPage, EventsPage, TestingModulePage
 from desktop_ui.pages.launch import LaunchAnimationWindow
 from desktop_ui.pages.projects import ProjectsPage
 from desktop_ui.pages.features_events.events_page_functions import run_events_for_feature as events_run_events_for_feature, update_feature_workflow as events_update_feature_workflow
