@@ -321,42 +321,41 @@ class EventExecutor:
         except:
             return False
     
-    # @classmethod
-    # def _ensure_browser_open(cls, test_url: str = "https://example.com", headless: bool = False):
-    #     """
-    #     Ensure singleton browser is open and connected. Test if goto works. Recreate if closed or not working.
+    @classmethod
+    def _ensure_browser_open(cls, headless: bool = False):
+        """
+        Ensure singleton browser is open and connected. Test if goto works. Recreate if closed or not working.
         
-    #     Args:
-    #         headless: Whether to launch browser in headless mode (if recreating)
-    #     """
-    #     browser_working = False
+        Args:
+            headless: Whether to launch browser in headless mode (if recreating)
+        """
+        browser_working = False
         
-    #     # Step 1: Check if browser exists and is connected
-    #     if cls._is_singleton_browser_open():
-    #         # Step 2: Test if page is accessible
-    #         try:
-    #             if cls._singleton_page:
-    #                 # Step 3: Test if goto actually works by trying a simple navigation
-    #                 cls._singleton_page.goto(test_url, timeout=5000)
-    #                 cls._singleton_page.wait_for_load_state('domcontentloaded', timeout=5000)
-    #                 browser_working = True
-    #                 print("✅ Browser is open and goto is working")
-    #             else:
-    #                 print("⚠️ Singleton page is None")
-    #         except Exception as e:
-    #             print(f"⚠️ Browser goto test failed: {e}")
-    #             browser_working = False
-    #     else:
-    #         print("⚠️ Singleton browser is not connected")
+        # Step 1: Check if browser exists and is connected
+        if cls._is_singleton_browser_open():
+            # Step 2: Test if page is accessible
+            try:
+                if cls._singleton_page:
+                    # Step 3: Test if goto actually works by trying a simple navigation
+                    cls._singleton_page.wait_for_timeout(3000)
+                    browser_working = True
+                    print("✅ Browser is open and goto is working")
+                else:
+                    print("⚠️ Singleton page is None")
+            except Exception as e:
+                print(f"⚠️ Browser goto test failed: {e}")
+                browser_working = False
+        else:
+            print("⚠️ Singleton browser is not connected")
         
-    #     # If browser is not working, reset singleton and recreate
-    #     if not browser_working:
-    #         print("🔄 Browser is closed or not working, resetting singleton and recreating...")
-    #         # Set singleton browser to None
-    #         cls._singleton_browser = None
-    #         cls._singleton_page = None
-    #         # cls._singleton_playwright = None
-    #         cls._singleton_headless = None
+        # If browser is not working, reset singleton and recreate
+        if not browser_working:
+            print("🔄 Browser is closed or not working, resetting singleton and recreating...")
+            # Set singleton browser to None
+            cls._singleton_browser = None
+            cls._singleton_page = None
+            # cls._singleton_playwright = None
+            cls._singleton_headless = None
     
     @classmethod
     def _get_or_create_singleton_browser(cls, headless: bool = False):
@@ -369,10 +368,8 @@ class EventExecutor:
         Returns:
             tuple: (playwright, browser, page)
         """
+        cls._ensure_browser_open(headless=headless)
 
-
-        # cls._ensure_browser_open(headless=headless)
-        
         # If browser exists and is connected, reuse it
         if cls._is_singleton_browser_open():
             print("♻️ Reusing existing singleton browser")
