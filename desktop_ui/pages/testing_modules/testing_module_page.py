@@ -155,20 +155,6 @@ class TestingModulePage:
             command=self.create_new_module)
         self.new_module_button.pack(side=tk.LEFT, padx=(0, 5))
 
-        self.delete_module_button = tk.Button(module_buttons_frame,
-            text="🗑️ Delete",
-            font=('Segoe UI', 9, 'bold'),
-            bg=self.colors['accent'],
-            fg='white',
-            relief=tk.FLAT,
-            bd=0,
-            padx=10,
-            pady=5,
-            cursor='hand2',
-            command=self.delete_module,
-            state=tk.DISABLED)
-        self.delete_module_button.pack(side=tk.LEFT, padx=(0, 5))
-
         # NEW: Scheduler button
         self.scheduler_button = tk.Button(module_buttons_frame,
             text="⏰ Scheduler",
@@ -182,6 +168,20 @@ class TestingModulePage:
             cursor='hand2',
             command=self.open_scheduler)
         self.scheduler_button.pack(side=tk.LEFT)
+
+        self.delete_module_button = tk.Button(module_buttons_frame,
+            text="🗑️ Delete",
+            font=('Segoe UI', 9, 'bold'),
+            bg='crimson',
+            fg='white',
+            relief=tk.FLAT,
+            bd=0,
+            padx=10,
+            pady=5,
+            cursor='hand2',
+            command=self.delete_module,
+            state=tk.DISABLED)
+        self.delete_module_button.pack(side=tk.RIGHT, padx=(0, 5))
 
     
     def create_available_panel(self, parent):

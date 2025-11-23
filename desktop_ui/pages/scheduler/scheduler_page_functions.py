@@ -105,8 +105,9 @@ class SchedulerPageFunctions:
             messagebox.showerror("Error", "Invalid module selection!")
             return
         
-        # Get schedule type from toggle (True = One-Time, False = Recurring)
-        is_onetime = self.page.schedule_type_var.get()
+        # Get schedule type from checkbox (True = Recurring, False = One-Time)
+        is_recurring = self.page.recurring_check_var.get()
+        is_onetime = not is_recurring
         
         if is_onetime:
             # One-time schedule
@@ -232,9 +233,10 @@ class SchedulerPageFunctions:
             messagebox.showwarning("Warning", "Please select a job to delete!")
             return
         
-        # Get job ID
+        # Get job ID and module name
         item = self.page.jobs_tree.item(selection[0])
         job_id = item['values'][0]
+        module_name = item['values'][1]
         
         # Confirm deletion
         result = messagebox.askyesno(
@@ -301,7 +303,7 @@ class SchedulerPageFunctions:
         self.page.browser_var.set("Chrome")
         self.page.headless_var.set(False)
         
-        # Reset toggle to one-time mode
-        self.page.schedule_type_var.set(True)
+        # Reset checkbox to one-time mode (unchecked)
+        self.page.recurring_check_var.set(False)
         self.page.toggle_schedule_type()  # Apply the toggle state
 

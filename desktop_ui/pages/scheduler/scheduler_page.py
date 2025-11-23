@@ -95,20 +95,15 @@ class SchedulerPage:
         form_content = tk.Frame(form_card, bg=self.colors['surface'])
         form_content.pack(fill=tk.X, padx=20, pady=20)
         
-        # Create three columns
+        # Create three columns with equal spacing
         col1 = tk.Frame(form_content, bg=self.colors['surface'])
-        col1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+        col1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 15))
         
         col2 = tk.Frame(form_content, bg=self.colors['surface'])
-        col2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 10))
-        
-        # NEW: Toggle button frame (between col2 and col3)
-        toggle_frame = tk.Frame(form_content, bg=self.colors['surface'], width=60)
-        toggle_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(10, 10))
-        toggle_frame.pack_propagate(False)
+        col2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(15, 15))
         
         col3 = tk.Frame(form_content, bg=self.colors['surface'])
-        col3.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 0))
+        col3.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(15, 0))
         
         # COLUMN 1: Module Selection
         self.create_module_selection(col1)
@@ -116,10 +111,7 @@ class SchedulerPage:
         # COLUMN 2: Date and Time (One-time run)
         self.create_datetime_selection(col2)
         
-        # NEW: TOGGLE BUTTON (between columns)
-        self.create_schedule_toggle(toggle_frame)
-        
-        # COLUMN 3: Recurring Schedule
+        # COLUMN 3: Recurring Schedule (with checkbox)
         self.create_recurring_selection(col3)
         
         # ADDED: Additional options row
@@ -199,7 +191,7 @@ class SchedulerPage:
             font=('Segoe UI', 12, 'bold'),
             fg=self.colors['text'],
             bg=self.colors['surface']
-        ).pack(anchor=tk.W, pady=(0, 10))
+        ).pack(anchor=tk.W, pady=(0, 15))
         
         self.module_var = tk.StringVar()
         self.module_combo = ttk.Combobox(
@@ -209,129 +201,21 @@ class SchedulerPage:
             width=25,
             font=('Segoe UI', 10)
         )
-        self.module_combo.pack(fill=tk.X, pady=(0, 5))
+        self.module_combo.pack(fill=tk.X, pady=(0, 8))
         
         tk.Label(
             parent,
             text="Choose a testing module to schedule",
-            font=('Segoe UI', 9),
+            font=('Segoe UI', 8),
             fg=self.colors['text_light'],
             bg=self.colors['surface']
         ).pack(anchor=tk.W)
 
-    def create_schedule_toggle(self, parent):
-        """Create toggle button between one-time and recurring schedule"""
-        # Add some top padding to align with other columns
-        tk.Label(parent, text="", bg=self.colors['surface'], height=1).pack()
-        
-        # Container for toggle
-        toggle_container = tk.Frame(parent, bg=self.colors['surface'])
-        toggle_container.pack(expand=True)
-        
-        # Schedule type variable (True = One-Time, False = Recurring)
-        self.schedule_type_var = tk.BooleanVar(value=True)
-        
-        # One-Time indicator
-        self.onetime_label = tk.Label(
-            toggle_container,
-            text="One-Time",
-            font=('Segoe UI', 9, 'bold'),
-            fg=self.colors['success'],
-            bg=self.colors['surface']
-        )
-        self.onetime_label.pack(pady=(0, 5))
-        
-        # Toggle button
-        toggle_btn_frame = tk.Frame(
-            toggle_container,
-            bg=self.colors['border'],
-            relief=tk.RAISED,
-            bd=1
-        )
-        toggle_btn_frame.pack(pady=5)
-        
-        self.toggle_button = tk.Button(
-            toggle_btn_frame,
-            text="⬇",
-            font=('Segoe UI', 16, 'bold'),
-            bg=self.colors['success'],
-            fg='white',
-            width=3,
-            height=2,
-            relief=tk.FLAT,
-            bd=0,
-            cursor='hand2',
-            command=self.toggle_schedule_type
-        )
-        self.toggle_button.pack(padx=2, pady=2)
-        
-        # Recurring indicator
-        self.recurring_label = tk.Label(
-            toggle_container,
-            text="Recurring",
-            font=('Segoe UI', 9),
-            fg=self.colors['text_light'],
-            bg=self.colors['surface']
-        )
-        self.recurring_label.pack(pady=(5, 0))
-        
-        # OR divider
-        tk.Label(
-            toggle_container,
-            text="OR",
-            font=('Segoe UI', 8, 'bold'),
-            fg=self.colors['border'],
-            bg=self.colors['surface']
-        ).pack(pady=(15, 0))
-
     def toggle_schedule_type(self):
-        """Toggle between one-time and recurring schedule"""
-        current = self.schedule_type_var.get()
-        new_value = not current
-        self.schedule_type_var.set(new_value)
+        """Toggle between one-time and recurring schedule based on checkbox"""
+        is_recurring = self.recurring_check_var.get()
         
-        if new_value:  # One-Time selected
-            # Update toggle button
-            self.toggle_button.config(
-                text="⬇",
-                bg=self.colors['success']
-            )
-            
-            # Update labels
-            self.onetime_label.config(
-                font=('Segoe UI', 9, 'bold'),
-                fg=self.colors['success']
-            )
-            self.recurring_label.config(
-                font=('Segoe UI', 9),
-                fg=self.colors['text_light']
-            )
-            
-            # Enable one-time fields
-            self.date_entry.config(state='normal')
-            self.time_entry.config(state='normal')
-            
-            # Disable recurring fields
-            self.day_combo.config(state='disabled')
-            self.recurring_time_entry.config(state='disabled')
-            
-        else:  # Recurring selected
-            # Update toggle button
-            self.toggle_button.config(
-                text="⬆",
-                bg=self.colors['accent']
-            )
-            
-            # Update labels
-            self.onetime_label.config(
-                font=('Segoe UI', 9),
-                fg=self.colors['text_light']
-            )
-            self.recurring_label.config(
-                font=('Segoe UI', 9, 'bold'),
-                fg=self.colors['accent']
-            )
-            
+        if is_recurring:  # Recurring selected
             # Disable one-time fields
             self.date_entry.config(state='disabled')
             self.time_entry.config(state='disabled')
@@ -339,6 +223,15 @@ class SchedulerPage:
             # Enable recurring fields
             self.day_combo.config(state='readonly')
             self.recurring_time_entry.config(state='normal')
+            
+        else:  # One-Time selected
+            # Enable one-time fields
+            self.date_entry.config(state='normal')
+            self.time_entry.config(state='normal')
+            
+            # Disable recurring fields
+            self.day_combo.config(state='disabled')
+            self.recurring_time_entry.config(state='disabled')
 
 
     
@@ -350,48 +243,54 @@ class SchedulerPage:
             font=('Segoe UI', 12, 'bold'),
             fg=self.colors['text'],
             bg=self.colors['surface']
-        ).pack(anchor=tk.W, pady=(0, 10))
+        ).pack(anchor=tk.W, pady=(0, 15))
         
-        # Date selection
+        # Date selection - aligned with recurring schedule
         date_frame = tk.Frame(parent, bg=self.colors['surface'])
-        date_frame.pack(fill=tk.X, pady=(0, 10))
+        date_frame.pack(fill=tk.X, pady=(0, 12))
         
-        tk.Label(
+        date_label = tk.Label(
             date_frame,
             text="📅 Date:",
-            font=('Segoe UI', 10),
+            font=('Segoe UI', 10, 'bold'),
             fg=self.colors['text'],
-            bg=self.colors['surface']
-        ).pack(side=tk.LEFT, padx=(0, 10))
+            bg=self.colors['surface'],
+            width=8,
+            anchor=tk.W
+        )
+        date_label.pack(side=tk.LEFT, padx=(0, 10))
         
         self.date_entry = tk.Entry(
             date_frame,
             font=('Segoe UI', 10),
-            width=12,
-            state='normal'  # CHANGED: explicitly set initial state
+            width=15,
+            state='normal'
         )
-        self.date_entry.pack(side=tk.LEFT)
+        self.date_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
         
-        # Time selection
+        # Time selection - aligned with recurring schedule
         time_frame = tk.Frame(parent, bg=self.colors['surface'])
-        time_frame.pack(fill=tk.X)
+        time_frame.pack(fill=tk.X, pady=(0, 8))
         
-        tk.Label(
+        time_label = tk.Label(
             time_frame,
             text="⏰ Time:",
-            font=('Segoe UI', 10),
+            font=('Segoe UI', 10, 'bold'),
             fg=self.colors['text'],
-            bg=self.colors['surface']
-        ).pack(side=tk.LEFT, padx=(0, 10))
+            bg=self.colors['surface'],
+            width=8,
+            anchor=tk.W
+        )
+        time_label.pack(side=tk.LEFT, padx=(0, 10))
         
         self.time_entry = tk.Entry(
             time_frame,
             font=('Segoe UI', 10),
-            width=12,
-            state='normal'  # CHANGED: explicitly set initial state
+            width=15,
+            state='normal'
         )
-        self.time_entry.pack(side=tk.LEFT)
+        self.time_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.time_entry.insert(0, "09:00")
         
         tk.Label(
@@ -404,57 +303,75 @@ class SchedulerPage:
 
     
     def create_recurring_selection(self, parent):
-        """Create recurring schedule selection"""
-        tk.Label(
-            parent,
+        """Create recurring schedule selection with checkbox"""
+        # Header with checkbox
+        header_frame = tk.Frame(parent, bg=self.colors['surface'])
+        header_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        # Checkbox for enabling recurring schedule
+        self.recurring_check_var = tk.BooleanVar(value=False)
+        self.recurring_check = tk.Checkbutton(
+            header_frame,
             text="Recurring Schedule",
+            variable=self.recurring_check_var,
             font=('Segoe UI', 12, 'bold'),
+            bg=self.colors['surface'],
             fg=self.colors['text'],
-            bg=self.colors['surface']
-        ).pack(anchor=tk.W, pady=(0, 10))
+            selectcolor=self.colors['surface'],
+            activebackground=self.colors['surface'],
+            activeforeground=self.colors['text'],
+            command=self.toggle_schedule_type
+        )
+        self.recurring_check.pack(side=tk.LEFT)
         
-        # Day selection
+        # Day selection - aligned with one-time schedule
         day_frame = tk.Frame(parent, bg=self.colors['surface'])
-        day_frame.pack(fill=tk.X, pady=(0, 10))
+        day_frame.pack(fill=tk.X, pady=(0, 12))
         
-        tk.Label(
+        day_label = tk.Label(
             day_frame,
             text="📆 Day:",
-            font=('Segoe UI', 10),
+            font=('Segoe UI', 10, 'bold'),
             fg=self.colors['text'],
-            bg=self.colors['surface']
-        ).pack(side=tk.LEFT, padx=(0, 10))
+            bg=self.colors['surface'],
+            width=8,
+            anchor=tk.W
+        )
+        day_label.pack(side=tk.LEFT, padx=(0, 10))
         
-        self.day_var = tk.StringVar(value="Monday")  # CHANGED: default to Monday instead of None
+        self.day_var = tk.StringVar(value="Monday")
         self.day_combo = ttk.Combobox(
             day_frame,
             textvariable=self.day_var,
-            values=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "Daily"],  # CHANGED: removed "None"
-            state="disabled",  # CHANGED: initially disabled
-            width=12,
+            values=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "Daily"],
+            state="disabled",  # Initially disabled
+            width=15,
             font=('Segoe UI', 10)
         )
-        self.day_combo.pack(side=tk.LEFT)
+        self.day_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
-        # Time selection for recurring
+        # Time selection for recurring - aligned with one-time schedule
         recurring_time_frame = tk.Frame(parent, bg=self.colors['surface'])
-        recurring_time_frame.pack(fill=tk.X)
+        recurring_time_frame.pack(fill=tk.X, pady=(0, 8))
         
-        tk.Label(
+        recurring_time_label = tk.Label(
             recurring_time_frame,
             text="⏰ Time:",
-            font=('Segoe UI', 10),
+            font=('Segoe UI', 10, 'bold'),
             fg=self.colors['text'],
-            bg=self.colors['surface']
-        ).pack(side=tk.LEFT, padx=(0, 10))
+            bg=self.colors['surface'],
+            width=8,
+            anchor=tk.W
+        )
+        recurring_time_label.pack(side=tk.LEFT, padx=(0, 10))
         
         self.recurring_time_entry = tk.Entry(
             recurring_time_frame,
             font=('Segoe UI', 10),
-            width=12,
-            state='disabled'  # CHANGED: initially disabled
+            width=15,
+            state='disabled'  # Initially disabled
         )
-        self.recurring_time_entry.pack(side=tk.LEFT)
+        self.recurring_time_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.recurring_time_entry.insert(0, "09:00")
         
         tk.Label(
