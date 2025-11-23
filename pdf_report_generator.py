@@ -14,6 +14,18 @@ from reportlab.graphics.charts.piecharts import Pie
 from datetime import datetime
 import os
 
+def generate_pdf_report(module_name: str, module_execution_result: dict, output_path: str = None) -> str:
+
+    module_results = {
+                'module_name': module_name,
+                'execution_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'total_features': module_execution_result['total_features'],
+                'passed_features': module_execution_result['passed_features'],
+                'failed_features': module_execution_result['failed_features'],
+                'feature_results': module_execution_result['feature_results']
+            }
+    generate_test_execution_pdf(module_results)
+
 
 def generate_test_execution_pdf(results: dict, output_path: str = None) -> str:
     """

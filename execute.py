@@ -845,17 +845,24 @@ def run_scheduled_module():
         # Save execution report to database
         try:
             from model.database import save_module_execution_report
+            from pdf_report_generator import generate_pdf_report
             import json
             
             report_json = json.dumps(result, indent=2)
-            save_module_execution_report(
-                module_id=args.module_id,
-                total_features=result['total_features'],
-                passed_features=result['passed_features'],
-                failed_features=result['failed_features'],
-                report_json=report_json
-            )
+
+            module_results = {
+                'module_name': args.module_name,
+                'execution_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'total_features': result['total_features'],
+                'passed_features': result['passed_features'],
+                'failed_features': result['failed_features'],
+                'feature_results': result['feature_results']
+            }
+
+            save_module_execution_report(args.module_id, module_results)
             print("\n[OK] Execution report saved to database")
+
+            generate_pdf_report(args.module_name, module_results)
 
         except Exception as e:
             print(f"\n[WARNING] Warning: Failed to save execution report: {e}")
