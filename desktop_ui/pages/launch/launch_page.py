@@ -50,7 +50,7 @@ class LaunchAnimationWindow:
         # App title
         self.title_label = tk.Label(
             self.logo_frame,
-            text="Testing Automation ",
+            text="Evently",
             font=('Segoe UI', 24, 'bold'),
             bg='#1a1a2e',
             fg='#ffffff'
@@ -60,7 +60,7 @@ class LaunchAnimationWindow:
         # Subtitle
         self.subtitle_label = tk.Label(
             self.logo_frame,
-            text="Powered by AI",
+            text="Testing Automation Tool, Powered by AI",
             font=('Segoe UI', 12),
             bg='#1a1a2e',
             fg='#3498db'

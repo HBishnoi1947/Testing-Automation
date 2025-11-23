@@ -2,18 +2,17 @@
 Events page workflows and actions extracted from the main UI.
 """
 
-import threading
-import asyncio
 import tkinter as tk
 from tkinter import messagebox
 from typing import List
 
-from execute import execute_events
-from run import AutomationRunner
+from execute import EventExecutor
+from automation_runner import AutomationRunner
+from desktop_ui.utils.loading_overlay import LoadingOverlay
 
 
 def run_events_for_feature(root: tk.Tk, update_status, feature, events: List):
-    """Run all events for the selected feature in a background thread."""
+    """Run all events for the selected feature."""
     if not feature or not events:
         messagebox.showwarning("Warning", "No events to run!")
         return
@@ -26,16 +25,30 @@ def run_events_for_feature(root: tk.Tk, update_status, feature, events: List):
         return
 
     update_status(f"Running {len(events)} events for '{feature.feature}'...", 'info')
-
-    def _worker():
-        try:
-            success = execute_events(events, headless=False)
-            root.after(0, lambda: _events_execution_completed(root, update_status, success, feature, events))
-        except Exception as e:
-            root.after(0, lambda: _events_execution_error(update_status, str(e)))
-
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
+    
+    # Show loading overlay
+    loading = LoadingOverlay(root)
+    loading.show(f"Executing {len(events)} events...")
+    root.update()  # Force UI update to show overlay
+    
+    try:
+        # Execute events synchronously
+        executor = EventExecutor()
+        success = executor.execute_events(events, headless=False)
+        
+        # Hide loading overlay
+        loading.hide()
+        root.update()
+        
+        # Show result
+        if success:
+            _events_execution_completed(root, update_status, success, feature, events)
+        else:
+            _events_execution_error(update_status, "Some events failed to execute")
+    except Exception as e:
+        loading.hide()
+        root.update()
+        _events_execution_error(update_status, str(e))
 
 
 def update_feature_workflow(root: tk.Tk, update_status, feature, events: List):
@@ -44,7 +57,7 @@ def update_feature_workflow(root: tk.Tk, update_status, feature, events: List):
         messagebox.showwarning("Warning", "No feature selected or no events to update!")
         return
 
-    first_event_url = events[0].url if events and events[0].url else "https://example.com"
+    first_event_url = events[0].url if events and events[0].url else ""
 
     update_window = tk.Toplevel(root)
     update_window.title("Update Feature")
@@ -89,26 +102,37 @@ def update_feature_workflow(root: tk.Tk, update_status, feature, events: List):
 
         update_window.destroy()
         update_status("Starting update automation workflow...", 'info')
-
-        def _run_update():
-            try:
-                automation_runner = AutomationRunner()
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                success = loop.run_until_complete(
-                    automation_runner.run_update_automation_workflow(
-                        target_url=first_event_url,
-                        prompt=prompt,
-                        feature_id=feature.id,
-                        feature_name=feature.feature
-                    )
-                )
-                loop.close()
-                root.after(0, lambda: _update_completed(update_status, success))
-            except Exception as e:
-                root.after(0, lambda: _update_error(update_status, str(e)))
-
-        threading.Thread(target=_run_update, daemon=True).start()
+        
+        # Show loading overlay
+        loading = LoadingOverlay(root)
+        loading.show("Updating feature...")
+        root.update()  # Force UI update to show overlay
+        
+        try:
+            # Run update workflow synchronously
+            automation_runner = AutomationRunner()
+            result = automation_runner.run_update_automation_workflow(
+                target_url=first_event_url,
+                prompt=prompt,
+                feature_id=feature.id,
+                feature_name=feature.feature
+            )
+            
+            # Hide loading overlay
+            loading.hide()
+            root.update()
+            
+            # Check result
+            success = result and result.get('success', False) if result else False
+            if success:
+                _update_completed(update_status, success)
+            else:
+                error_msg = result.get('error', 'Unknown error') if result else 'Update failed'
+                _update_error(update_status, error_msg)
+        except Exception as e:
+            loading.hide()
+            root.update()
+            _update_error(update_status, str(e))
 
     def _cancel():
         update_window.destroy()

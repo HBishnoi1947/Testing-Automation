@@ -7,6 +7,7 @@ from tkinter import messagebox
 from typing import List, Optional
 from model.database import get_all_features, get_features_by_project, delete_feature_by_feature_id
 from model.feature import Feature
+from execute import EventExecutor
 
 
 class FeaturesPage:
@@ -121,7 +122,21 @@ class FeaturesPage:
                                           pady=5,
                                           cursor='hand2',
                                           command=self.create_new_feature)
-        self.new_feature_button.pack(side=tk.LEFT)
+        self.new_feature_button.pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Launch browser button
+        self.launch_browser_button = tk.Button(buttons_frame,
+                                             text="🌐 Launch Browser",
+                                             font=('Segoe UI', 9, 'bold'),
+                                             bg='#4A90E2',
+                                             fg='white',
+                                             relief=tk.FLAT,
+                                             bd=0,
+                                             padx=15,
+                                             pady=5,
+                                             cursor='hand2',
+                                             command=self.launch_browser)
+        self.launch_browser_button.pack(side=tk.LEFT)
         
         # Delete feature button
         self.delete_feature_button = tk.Button(buttons_frame,
@@ -182,6 +197,14 @@ class FeaturesPage:
         # Call the callback function
         if self.on_create_feature_callback:
             self.on_create_feature_callback()
+
+    def launch_browser(self):
+        """Launch local browser using singleton browser instance."""
+        try:
+            EventExecutor._get_or_create_singleton_browser(headless=False)
+            messagebox.showinfo("Browser Launched", "Browser has been launched successfully.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to launch browser: {e}")
 
     def delete_selected_feature(self):
         """Delete the currently selected feature from the database."""

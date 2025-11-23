@@ -80,7 +80,9 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     create_testing_module_table = """
     CREATE TABLE IF NOT EXISTS testing_modules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        testing_module TEXT NOT NULL UNIQUE
+        testing_module TEXT NOT NULL UNIQUE,
+        project_id INTEGER NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
     )
     """
     
@@ -96,6 +98,20 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     )
     """
     
+    # Create module_execution_reports table
+    create_module_execution_reports_table = """
+    CREATE TABLE IF NOT EXISTS module_execution_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        module_id INTEGER NOT NULL,
+        execution_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        total_features INTEGER,
+        passed_features INTEGER,
+        failed_features INTEGER,
+        report_json TEXT,
+        FOREIGN KEY (module_id) REFERENCES testing_modules(id)
+    )
+    """
+    
     # Execute table creation
     conn.execute(create_projects_table)
     conn.execute(create_features_table)
@@ -103,6 +119,7 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     conn.execute(create_events_table)
     conn.execute(create_testing_module_table)
     conn.execute(create_map_testing_module_table)
+    conn.execute(create_module_execution_reports_table)
     
     # Insert predefined operation types if they don't exist
     insert_operation_types = """
@@ -1146,11 +1163,12 @@ def get_features_count_by_project(project_id: int, db_path: str = "database.db")
 
 # Testing Module Functions
 
-def create_testing_module(module_name: str, db_path: str = "database.db") -> int:
+def create_testing_module(module_name: str, project_id: int, db_path: str = "database.db") -> int:
     """Create a new testing module and return its ID.
     
     Args:
         module_name: Name of the testing module
+        project_id: ID of the project this module belongs to
         db_path: Path to SQLite database file
         
     Returns:
@@ -1159,13 +1177,20 @@ def create_testing_module(module_name: str, db_path: str = "database.db") -> int
     conn = connect_to_sqlite_database(db_path)
     
     try:
+        # Validate project_id exists
+        check_project_sql = "SELECT 1 FROM projects WHERE id = ?"
+        cursor = conn.execute(check_project_sql, (project_id,))
+        result = cursor.fetchone()
+        if not result:
+            raise ValueError(f"Project ID {project_id} does not exist in the database.")
+        
         # Insert testing module
-        insert_sql = "INSERT INTO testing_modules (testing_module) VALUES (?)"
-        cursor = conn.execute(insert_sql, (module_name,))
+        insert_sql = "INSERT INTO testing_modules (testing_module, project_id) VALUES (?, ?)"
+        cursor = conn.execute(insert_sql, (module_name, project_id))
         module_id = cursor.lastrowid
         conn.commit()
         
-        print(f"Created testing module '{module_name}' with ID {module_id}")
+        print(f"Created testing module '{module_name}' with ID {module_id} for project {project_id}")
         return module_id
         
     except Exception as e:
@@ -1183,19 +1208,45 @@ def get_all_testing_modules(db_path: str = "database.db") -> List[dict]:
         db_path: Path to SQLite database file
         
     Returns:
-        List[dict]: List of testing module dictionaries
+        List[dict]: List of testing module dictionaries with id, testing_module, and project_id
     """
     conn = connect_to_sqlite_database(db_path)
     
     try:
-        select_sql = "SELECT id, testing_module FROM testing_modules ORDER BY id"
+        select_sql = "SELECT id, testing_module, project_id FROM testing_modules ORDER BY id"
         cursor = conn.execute(select_sql)
         rows = cursor.fetchall()
         
-        return [{'id': row['id'], 'testing_module': row['testing_module']} for row in rows]
+        return [{'id': row['id'], 'testing_module': row['testing_module'], 'project_id': row['project_id']} for row in rows]
         
     except Exception as e:
         raise RuntimeError(f"Failed to get testing modules: {e}")
+    
+    finally:
+        conn.close()
+
+
+def get_testing_modules_by_project(project_id: int, db_path: str = "database.db") -> List[dict]:
+    """Get all testing modules for a specific project.
+    
+    Args:
+        project_id: ID of the project
+        db_path: Path to SQLite database file
+        
+    Returns:
+        List[dict]: List of testing module dictionaries with id, testing_module, and project_id
+    """
+    conn = connect_to_sqlite_database(db_path)
+    
+    try:
+        select_sql = "SELECT id, testing_module, project_id FROM testing_modules WHERE project_id = ? ORDER BY id"
+        cursor = conn.execute(select_sql, (project_id,))
+        rows = cursor.fetchall()
+        
+        return [{'id': row['id'], 'testing_module': row['testing_module'], 'project_id': row['project_id']} for row in rows]
+        
+    except Exception as e:
+        raise RuntimeError(f"Failed to get testing modules for project: {e}")
     
     finally:
         conn.close()
@@ -1433,39 +1484,6 @@ def reorder_testing_module_step(mapping_id: int, new_step_number: int, db_path: 
     finally:
         conn.close()
 
-
-def delete_testing_module(module_id: int, db_path: str = "database.db") -> None:
-    """Delete a testing module and all its mappings.
-    
-    Args:
-        module_id: ID of the testing module to delete
-        db_path: Path to SQLite database file
-    """
-    conn = connect_to_sqlite_database(db_path)
-    
-    try:
-        # First delete all mappings
-        delete_mappings_sql = "DELETE FROM map_testing_modules WHERE testing_module_id = ?"
-        cursor = conn.execute(delete_mappings_sql, (module_id,))
-        mappings_deleted = cursor.rowcount
-        
-        # Then delete the module
-        delete_module_sql = "DELETE FROM testing_modules WHERE id = ?"
-        cursor = conn.execute(delete_module_sql, (module_id,))
-        
-        if cursor.rowcount == 0:
-            raise ValueError(f"Testing module with ID {module_id} not found")
-        
-        conn.commit()
-        print(f"Deleted testing module {module_id} and {mappings_deleted} mappings")
-        
-    except Exception as e:
-        conn.rollback()
-        raise RuntimeError(f"Failed to delete testing module: {e}")
-    
-    finally:
-        conn.close()
-
 #Devesh
 def delete_testing_module(module_id: int, db_path: str = "database.db") -> None:
     """Delete a testing module and all its mappings.
@@ -1482,6 +1500,11 @@ def delete_testing_module(module_id: int, db_path: str = "database.db") -> None:
         cursor = conn.execute(delete_mappings_sql, (module_id,))
         mappings_deleted = cursor.rowcount
         
+        # Delete all execution reports for this module
+        delete_reports_sql = "DELETE FROM module_execution_reports WHERE module_id = ?"
+        cursor = conn.execute(delete_reports_sql, (module_id,))
+        reports_deleted = cursor.rowcount
+        
         # Then delete the module
         delete_module_sql = "DELETE FROM testing_modules WHERE id = ?"
         cursor = conn.execute(delete_module_sql, (module_id,))
@@ -1490,7 +1513,7 @@ def delete_testing_module(module_id: int, db_path: str = "database.db") -> None:
             raise ValueError(f"Testing module with ID {module_id} not found")
         
         conn.commit()
-        print(f"Deleted testing module {module_id} and {mappings_deleted} mappings")
+        print(f"Deleted testing module {module_id}, {mappings_deleted} mappings, and {reports_deleted} execution reports")
         
     except Exception as e:
         conn.rollback()
@@ -1694,21 +1717,6 @@ def save_module_execution_report(module_id: int, report_data: dict, db_path: str
     
     conn = connect_to_sqlite_database(db_path)
     try:
-        # Create reports table if it doesn't exist
-        create_table_sql = """
-        CREATE TABLE IF NOT EXISTS module_execution_reports (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            module_id INTEGER NOT NULL,
-            execution_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            total_features INTEGER,
-            passed_features INTEGER,
-            failed_features INTEGER,
-            report_json TEXT,
-            FOREIGN KEY (module_id) REFERENCES testing_modules(id)
-        )
-        """
-        conn.execute(create_table_sql)
-        
         # Insert report
         insert_sql = """
         INSERT INTO module_execution_reports 

@@ -7,10 +7,10 @@ import tkinter as tk
 from tkinter import messagebox
 
 from model.database import get_events_by_feature_id
-from execute import execute_events
+from execute import EventExecutor
 
 
-def run_testing_module(root: tk.Tk, update_status, features_page, module, flow, on_complete=None):
+def run_testing_module(root: tk.Tk, update_status, features_page, module, flow, browser="chromium", on_complete=None):
     """
     Execute all features in a testing module and generate report.
     
@@ -20,11 +20,11 @@ def run_testing_module(root: tk.Tk, update_status, features_page, module, flow, 
         features_page: Reference to features page (if needed)
         module: TestingModule object or dict
         flow: Module flow data
+        browser: Browser to use ("chromium", "firefox", or "edge")
         on_complete: Callback after completion
     """
     import threading
     from tkinter import messagebox
-    from execute import execute_events
     from model.database import get_events_by_feature_id, save_module_execution_report
     from datetime import datetime
     
@@ -103,13 +103,13 @@ def run_testing_module(root: tk.Tk, update_status, features_page, module, flow, 
             print(f"🚀 EXECUTING MODULE: {module_name}")
             print(f"{'='*80}")
             print(f"Total Features: {len(features_with_events)}")
+            print(f"Browser: {browser}")
             print(f"Execution Mode: ✅ Single browser session (all features)")
             print(f"{'='*80}\n")
             
             # ✅ STEP 2: Execute ALL features in ONE browser session
-            from execute import EventExecutor
-            executor = EventExecutor()
-            module_execution_result = executor.execute_module_features(features_with_events, headless=False)
+            executor = EventExecutor(new_object=True)
+            module_execution_result = executor.execute_testing_module(features_with_events, headless=False, browser=browser)
             
             # ✅ STEP 3: Build final results from module execution
             module_results = {

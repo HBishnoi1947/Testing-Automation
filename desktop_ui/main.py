@@ -16,7 +16,7 @@ from model.operation_type import OperationTypeMapper
 from model.project import Project
 
 # Import page components
-from pages import FeaturesPage, EventsPage, TestingModulePage
+from desktop_ui.pages import FeaturesPage, EventsPage, TestingModulePage
 from desktop_ui.pages.launch import LaunchAnimationWindow
 from desktop_ui.pages.projects import ProjectsPage
 from desktop_ui.pages.features_events.events_page_functions import run_events_for_feature as events_run_events_for_feature, update_feature_workflow as events_update_feature_workflow
@@ -35,8 +35,9 @@ class DesktopUI:
     def initialize_main_window(self):
         """Initialize the main application window after splash screen."""
         self.root = tk.Tk()
-        self.root.title("🚀 Testing Automation - Modern UI")
-        self.root.geometry("1400x900")
+        self.root.title("Evently Automation Tool")
+        # Set window to fullscreen
+        self.root.state('zoomed')  # Maximized on Windows
         self.root.minsize(1200, 800)
         
         # Modern color scheme
@@ -79,9 +80,6 @@ class DesktopUI:
         
         # Show project selection screen first
         self.show_project_selection()
-        
-        # Center window
-        self.center_window()
         
         # Start the main loop
         self.root.mainloop()
@@ -335,9 +333,9 @@ class DesktopUI:
             project_id=project_id
         )
     
-    def on_run_module(self, module, flow):
+    def on_run_module(self, module, flow, browser="chromium"):
         """Handle run module request from testing module page."""
-        tm_run_testing_module(self.root, self.update_status, None, module, flow)
+        tm_run_testing_module(self.root, self.update_status, None, module, flow, browser)
     
     def create_header(self, parent):
         """Create the modern header section."""
@@ -349,7 +347,7 @@ class DesktopUI:
         title_frame.pack(fill=tk.X)
         
         title_label = tk.Label(title_frame, 
-                              text=f"🚀 {self.current_project.name}", 
+                              text=f"📦 {self.current_project.name}", 
                               font=('Segoe UI', 24, 'bold'),
                               fg=self.colors['primary'],
                               bg=self.colors['background'])
