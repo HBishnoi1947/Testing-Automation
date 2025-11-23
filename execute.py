@@ -66,7 +66,8 @@ class EventExecutor:
             self.db_path = db_path
             self.operation_mapper = OperationTypeMapper(db_path)
             self.operation_mapper.load_operation_types()
-            print("🔧 EventExecutor new instance created (not singleton)")
+            print("[NEW] EventExecutor new instance created (not singleton)")
+
             return
         
         # For singleton: only initialize once
@@ -82,7 +83,7 @@ class EventExecutor:
         
         # Mark as initialized
         EventExecutor._initialized = True
-        print("🔧 EventExecutor singleton instance created")
+        print("[NEW] EventExecutor singleton instance created")
     
     @classmethod
     def _is_singleton_browser_open(cls) -> bool:
@@ -112,18 +113,18 @@ class EventExecutor:
                     # Step 3: Test if goto actually works by trying a simple navigation
                     cls._singleton_page.wait_for_timeout(3000)
                     browser_working = True
-                    print("✅ Browser is open and goto is working")
+                    print("[OK] Browser is open and goto is working")
                 else:
-                    print("⚠️ Singleton page is None")
+                    print("[WARNING] Singleton page is None")
             except Exception as e:
-                print(f"⚠️ Browser goto test failed: {e}")
+                print(f"[WARNING] Browser goto test failed: {e}")
                 browser_working = False
         else:
-            print("⚠️ Singleton browser is not connected")
+            print("[WARNING] Singleton browser is not connected")
         
         # If browser is not working, reset singleton and recreate
         if not browser_working:
-            print("🔄 Browser is closed or not working, resetting singleton and recreating...")
+            print("[SINGLETON] Browser is closed or not working, resetting singleton and recreating...")
             # Set singleton browser to None
             cls._singleton_browser = None
             cls._singleton_page = None
@@ -145,11 +146,11 @@ class EventExecutor:
 
         # If browser exists and is connected, reuse it
         if cls._is_singleton_browser_open():
-            print("♻️ Reusing existing singleton browser")
+            print("[*] Reusing existing singleton browser")
             return cls._singleton_playwright, cls._singleton_browser, cls._singleton_page
         
         # Create new browser
-        print("🌐 Creating new singleton browser")
+        print("[WEB] Creating new singleton browser")
         if cls._singleton_playwright is None:
             cls._singleton_playwright = sync_playwright().start()
         cls._singleton_browser = cls._singleton_playwright.chromium.launch(headless=headless)
@@ -173,7 +174,7 @@ class EventExecutor:
             cls._singleton_page = None
             cls._singleton_playwright = None
             cls._singleton_headless = None
-            print("🌐 Singleton browser closed")
+            print("[WEB] Singleton browser closed")
         except Exception as e:
             print(f"Error closing singleton browser: {e}")
     
@@ -203,18 +204,18 @@ class EventExecutor:
             if target_url != "":
                 page.goto(target_url)
                 page.wait_for_load_state('networkidle')
-                print("✅ Navigation completed successfully")
+                print("[OK] Navigation completed successfully")
             
             # Extract DOM content
-            print("\n🔍 Extracting DOM content...")
+            print("\n[*] Extracting DOM content...")
             save_page_dom_to_file(page, dom_output_file)
-            print(f"✅ DOM saved to: {dom_output_file}")
+            print(f"[OK] DOM saved to: {dom_output_file}")
             
             # Don't close browser - keep singleton browser open
             return True
             
         except Exception as e:
-            print(f"❌ Error navigating and extracting DOM: {e}")
+            print(f"[FAILED] Error navigating and extracting DOM: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -253,22 +254,22 @@ class EventExecutor:
                 try:
                     self._execute_single_event(event)
                     success_count += 1
-                    print(f"✅ Event {i} executed successfully")
+                    print(f"[OK] Event {i} executed successfully")
                 except Exception as e:
-                    print(f"❌ Event {i} failed: {e}")
+                    print(f"[FAILED] Event {i} failed: {e}")
                     # Continue with next event instead of stopping
                     continue
                 
                 # Small delay between events
                 time.sleep(1)
             
-            print(f"\n🎯 Execution completed: {success_count}/{len(events)} events successful")
-            print("🌐 Browser staying open for next execution...")
+            print(f"\n[*] Execution completed: {success_count}/{len(events)} events successful")
+            print("[WEB] Browser staying open for next execution...")
             
             return success_count == len(events)
             
         except Exception as e:
-            print(f"❌ Error during execution: {e}")
+            print(f"[FAILED] Error during execution: {e}")
             return False
         finally:
             # Don't cleanup - keep browser open (singleton pattern)
@@ -317,7 +318,7 @@ class EventExecutor:
                         page.wait_for_load_state('networkidle')
                         
                     except Exception as e:
-                        print(f"    ⚠️ Event {i} error: {e}")
+                        print(f"    [WARNING] Event {i} error: {e}")
                         continue
             finally:
                 # Restore original page reference
@@ -328,14 +329,14 @@ class EventExecutor:
             page.wait_for_load_state('networkidle')
             time.sleep(4)  # Additional 4s for any async operations
             final_url = page.url
-            print(f"  📍 Final URL: {final_url}")
+            print(f"  [*] Final URL: {final_url}")
             
             # Capture final DOM (sync version)
             save_page_dom_to_file(page, final_dom_path)
-            print(f"✅ DOM saved to: {final_dom_path}")
+            print(f"[OK] DOM saved to: {final_dom_path}")
             
             # Don't close browser - keep singleton browser open
-            print("🌐 Browser staying open (singleton)")
+            print("[WEB] Browser staying open (singleton)")
             
             return {'success': True,
                     'final_url' :final_url}
@@ -376,7 +377,7 @@ class EventExecutor:
         
         try:
             # Create separate browser instance for module execution (not singleton)
-            print(f"\n🌐 Opening separate browser session for module execution...")
+            print(f"\n[WEB] Opening separate browser session for module execution...")
             self.playwright = sync_playwright().start()
             if browser == "chromium":
                 self.browser = self.playwright.chromium.launch(headless=headless)
@@ -406,19 +407,19 @@ class EventExecutor:
                 events = feature_data.get('events', [])
                 
                 print(f"\n{'='*80}")
-                print(f"📋 FEATURE {idx}/{len(features_with_events)}: {feature_name}")
+                print(f"[*] FEATURE {idx}/{len(features_with_events)}: {feature_name}")
                 print(f"{'='*80}")
                 
-                # ✅ After first feature, skip navigation (stay on current page)
+                # [OK] After first feature, skip navigation (stay on current page)
                 if idx > 1:
-                    print(f"🔗 Continuing from current page: {self.page.url}")
+                    print(f"[*] Continuing from current page: {self.page.url}")
                     self.skip_navigation = True
                 else:
-                    print(f"🌐 Starting from initial URL")
+                    print(f"[WEB] Starting from initial URL")
                     self.skip_navigation = False
                 
                 if not events:
-                    print(f"⚠️ No events found for feature: {feature_name}")
+                    print(f"[WARNING] No events found for feature: {feature_name}")
                     feature_result = {
                         'feature_name': feature_name,
                         'success': False,
@@ -456,11 +457,11 @@ class EventExecutor:
                         self._execute_single_event(event)
                         success_count += 1
                         event_info['success'] = True
-                        print(f"✅ Event {event_idx} passed")
+                        print(f"[OK] Event {event_idx} passed")
                             
                     except Exception as e:
                         event_info['error'] = str(e)
-                        print(f"❌ Event {event_idx} failed: {e}")
+                        print(f"[FAILED] Event {event_idx} failed: {e}")
                     
                     event_results.append(event_info)
                     time.sleep(1)
@@ -478,11 +479,11 @@ class EventExecutor:
                 
                 if all_passed:
                     module_results['passed_features'] += 1
-                    print(f"\n✅ Feature '{feature_name}' PASSED ({success_count}/{len(events)} events)")
+                    print(f"\n[OK] Feature '{feature_name}' PASSED ({success_count}/{len(events)} events)")
                 else:
                     module_results['failed_features'] += 1
                     module_results['success'] = False
-                    print(f"\n❌ Feature '{feature_name}' FAILED ({success_count}/{len(events)} events passed)")
+                    print(f"\n[FAILED] Feature '{feature_name}' FAILED ({success_count}/{len(events)} events passed)")
                 
                 module_results['feature_results'].append(feature_result)
             
@@ -491,14 +492,14 @@ class EventExecutor:
             
             # Keep browser open briefly to see final state
             if not headless:
-                print(f"\n\n✅ All {len(features_with_events)} features executed in single browser session!")
+                print(f"\n\n[OK] All {len(features_with_events)} features executed in single browser session!")
                 print(f"Browser will close in 3 seconds...")
                 time.sleep(3)
             
             return module_results
             
         except Exception as e:
-            print(f"❌ Error during module execution: {e}")
+            print(f"[FAILED] Error during module execution: {e}")
             import traceback
             traceback.print_exc()
             return {
@@ -513,7 +514,7 @@ class EventExecutor:
             # Close browser ONCE after ALL features
             self.skip_navigation = False  # Reset flag
             self._cleanup()
-            print(f"🌐 Browser session closed.")
+            print(f"[WEB] Browser session closed.")
     
     def _execute_single_event(self, event: Event, headless: bool = False):
         """Execute a single event."""
@@ -570,7 +571,7 @@ class EventExecutor:
         if locator:
             try:
                 locator.click(timeout=10000)  # 10 second timeout for click
-                print(f"✅ Successfully clicked element using {strategy}: {event.html_component}")
+                print(f"[OK] Successfully clicked element using {strategy}: {event.html_component}")
                 return
             except Exception as e:
                 print(f"    Click action failed on found element: {e}")
@@ -595,7 +596,7 @@ class EventExecutor:
                 # Clear and fill the input
                 locator.clear(timeout=5000)
                 locator.fill(event.input_text, timeout=5000)
-                print(f"✅ Successfully input text using {strategy}: {event.html_component}")
+                print(f"[OK] Successfully input text using {strategy}: {event.html_component}")
                 return
             except Exception as e:
                 print(f"    Fill action failed on found element: {e}")
@@ -603,7 +604,7 @@ class EventExecutor:
                 try:
                     locator.clear(timeout=5000)
                     locator.type(event.input_text, delay=50, timeout=5000)
-                    print(f"✅ Successfully typed text using {strategy}: {event.html_component}")
+                    print(f"[OK] Successfully typed text using {strategy}: {event.html_component}")
                     return
                 except Exception as e2:
                     raise Exception(f"Element found but input failed: {e2}")
@@ -621,7 +622,7 @@ class EventExecutor:
                     locator = self.page.locator(event.html_component)
                     if locator.count() > 0:
                         locator.scroll_into_view_if_needed()
-                        print(f"✅ Successfully scrolled to element: {event.html_component}")
+                        print(f"[OK] Successfully scrolled to element: {event.html_component}")
                         return
                 except Exception as e:
                     print(f"Element scroll failed: {e}")
@@ -629,24 +630,24 @@ class EventExecutor:
                 # Try scroll directions
                 if event.html_component.lower() == "down":
                     self.page.evaluate("window.scrollBy(0, 500);")
-                    print("✅ Scrolled down")
+                    print("[OK] Scrolled down")
                     return
                 elif event.html_component.lower() == "up":
                     self.page.evaluate("window.scrollBy(0, -500);")
-                    print("✅ Scrolled up")
+                    print("[OK] Scrolled up")
                     return
                 elif event.html_component.lower() == "top":
                     self.page.evaluate("window.scrollTo(0, 0);")
-                    print("✅ Scrolled to top")
+                    print("[OK] Scrolled to top")
                     return
                 elif event.html_component.lower() == "bottom":
                     self.page.evaluate("window.scrollTo(0, document.body.scrollHeight);")
-                    print("✅ Scrolled to bottom")
+                    print("[OK] Scrolled to bottom")
                     return
             
             # Default scroll down
             self.page.evaluate("window.scrollBy(0, 500);")
-            print("✅ Scrolled down (default)")
+            print("[OK] Scrolled down (default)")
             
         except Exception as e:
             raise Exception(f"Error scrolling: {e}")
@@ -676,14 +677,14 @@ class EventExecutor:
                     # Check if element is visible
                     is_visible = locator.is_visible(timeout=5000)
                     if is_visible:
-                        print(f"✅ Verification PASSED - Element found and visible using {strategy}!")
+                        print(f"[OK] Verification PASSED - Element found and visible using {strategy}!")
                         return
                     else:
                         raise Exception(f"Verification FAILED - Element exists but not visible")
                 except Exception as e:
                     # If visibility check fails, try count check
                     if locator.count() > 0:
-                        print(f"✅ Verification PASSED - Element found using {strategy} (visibility check skipped)")
+                        print(f"[OK] Verification PASSED - Element found using {strategy} (visibility check skipped)")
                         return
                     else:
                         raise Exception(f"Verification FAILED - Element not found")
@@ -691,7 +692,7 @@ class EventExecutor:
                 raise Exception(f"Verification FAILED - Element not found (tried multiple strategies)")
                 
         except Exception as e:
-            print(f"❌ Verification error: {e}")
+            print(f"[FAILED] Verification error: {e}")
             raise Exception(f"Element verification failed: {e}")
     
     def _cleanup(self):
@@ -718,10 +719,163 @@ def main():
     success = executor.execute_events(events, headless=False)
     
     if success:
-        print("🎉 All events executed successfully!")
+        print("[SUCCESS] All events executed successfully!")
     else:
-        print("❌ Some events failed to execute")
+        print("[FAILED] Some events failed to execute")
+
+
+def run_scheduled_module():
+    """Execute a testing module from command-line (called by Task Scheduler)"""
+    import argparse
+    from datetime import datetime
+    
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Execute a testing module via scheduler")
+    parser.add_argument("--module-id", type=int, required=True, 
+                       help="ID of the testing module")
+    parser.add_argument("--module-name", type=str, required=True,
+                       help="Name of the testing module")
+    parser.add_argument("--browser", type=str, default="Chrome",
+                       choices=["Chrome", "Edge", "Firefox"],
+                       help="Browser to use for execution")
+    parser.add_argument("--headless", type=str, default="false",
+                       choices=["true", "false"],
+                       help="Run browser in headless mode")
+    
+    args = parser.parse_args()
+    
+    # Convert headless string to boolean
+    headless = args.headless.lower() == "true"
+    
+    # Map browser names to playwright browser types
+    browser_map = {
+        "Chrome": "chromium",
+        "Edge": "edge",
+        "Firefox": "firefox"
+    }
+    browser = browser_map.get(args.browser, "chromium")
+    
+    # Log execution start
+    print("=" * 80)
+    print(f"SCHEDULED TESTING MODULE EXECUTION")
+    print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Module ID: {args.module_id}")
+    print(f"Module Name: {args.module_name}")
+    print(f"Browser: {args.browser} ({browser})")
+    print(f"Headless Mode: {headless}")
+    print("=" * 80)
+    
+    try:
+        # Import required modules - use correct function names
+        from model.database import get_testing_module_flow, get_all_events_from_sqlite
+        
+        # Get module flow
+        module_flow = get_testing_module_flow(args.module_id)
+        
+        if not module_flow:
+            print(f"ERROR: No flow found for module ID {args.module_id}")
+            return 1
+        
+        print(f"\nModule Flow: {len(module_flow)} steps")
+        
+        # Build list of all feature IDs in the module
+        feature_ids = [step['feature_id'] for step in module_flow]
+        print(f"Feature IDs in module: {feature_ids}")
+        
+        # Get ALL events from database
+        all_events = get_all_events_from_sqlite()
+        
+        # Filter events that belong to features in this module
+        module_events = []
+        for event in all_events:
+            if event.feature_id in feature_ids:
+                module_events.append(event)
+        
+        if not module_events:
+            print("\nERROR: No events found for this module!")
+            return 1
+        
+        print(f"Found {len(module_events)} events for this module")
+        
+        # Group events by feature
+        features_with_events = []
+        for step in module_flow:
+            feature_id = step['feature_id']
+            feature_name = step['feature_name']
+            
+            # Get events for this feature
+            feature_events = [e for e in module_events if e.feature_id == feature_id]
+            
+            if feature_events:
+                features_with_events.append({
+                    'feature_id': feature_id,
+                    'feature_name': feature_name,
+                    'events': feature_events
+                })
+                print(f"  [OK] Feature: {feature_name} ({len(feature_events)} events)")
+
+        
+        if not features_with_events:
+            print("\nERROR: No features with events found!")
+            return 1
+        
+        # Execute the module
+        print(f"\n{'='*80}")
+        print(f"STARTING EXECUTION")
+        print(f"{'='*80}\n")
+        
+        executor = EventExecutor(new_object=True)  # Create new instance for scheduled run
+        result = executor.execute_testing_module(
+            features_with_events=features_with_events,
+            headless=headless,
+            browser=browser
+        )
+        
+        # Print results
+        print("\n" + "=" * 80)
+        print("EXECUTION RESULTS")
+        print("=" * 80)
+        print(f"Total Features: {result['total_features']}")
+        print(f"Passed Features: {result['passed_features']}")
+        print(f"Failed Features: {result['failed_features']}")
+        print(f"Success: {'YES' if result['success'] else 'NO'}")
+
+        print("=" * 80)
+        
+        # Save execution report to database
+        try:
+            from model.database import save_module_execution_report
+            import json
+            
+            report_json = json.dumps(result, indent=2)
+            save_module_execution_report(
+                module_id=args.module_id,
+                total_features=result['total_features'],
+                passed_features=result['passed_features'],
+                failed_features=result['failed_features'],
+                report_json=report_json
+            )
+            print("\n[OK] Execution report saved to database")
+
+        except Exception as e:
+            print(f"\n[WARNING] Warning: Failed to save execution report: {e}")
+        
+        return 0 if result['success'] else 1
+    
+    except Exception as e:
+        print(f"\nERROR: Execution failed!")
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    
+    # Check if running from scheduler (has command-line arguments)
+    if len(sys.argv) > 1 and "--module-id" in sys.argv:
+        sys.exit(run_scheduled_module())
+    else:
+        main()
+

@@ -1,0 +1,45 @@
+================================================================================ 
+SCHEDULED TASK EXECUTION - Job 22 
+Module: new1 
+Start Time: 23-11-2025 21:55:00.92 
+================================================================================ 
+ 
+Working Directory: C:\Users\Devesh\practise files\testingapp\Testing-Automation 
+ 
+Executing Python Script... 
+Traceback (most recent call last):
+  File "C:\Users\Devesh\practise files\testingapp\Testing-Automation\execute.py", line 826, in run_scheduled_module
+    executor = EventExecutor(new_object=True)  # Create new instance for scheduled run
+  File "C:\Users\Devesh\practise files\testingapp\Testing-Automation\execute.py", line 69, in __init__
+    print("\U0001f527 EventExecutor new instance created (not singleton)")
+  File "C:\Users\Devesh\AppData\Local\Programs\Python\Python39\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f527' in position 0: character maps to <undefined>
+================================================================================
+SCHEDULED TESTING MODULE EXECUTION
+Time: 2025-11-23 21:55:01
+Module ID: 4
+Module Name: new1
+Browser: Chrome (chromium)
+Headless Mode: False
+================================================================================
+
+Module Flow: 2 steps
+Feature IDs in module: [18, 19]
+Found 7 events for this module
+  [OK] Feature: Login (3 events)
+  [OK] Feature: login (4 events)
+
+================================================================================
+STARTING EXECUTION
+================================================================================
+
+Loaded 4 operation types for optimization
+
+ERROR: Execution failed!
+Error: 'charmap' codec can't encode character '\U0001f527' in position 0: character maps to <undefined>
+ 
+================================================================================ 
+End Time: 23-11-2025 21:55:01.77 
+Exit Code: 1 
+================================================================================ 

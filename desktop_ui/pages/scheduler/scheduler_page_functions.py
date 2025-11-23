@@ -139,6 +139,10 @@ class SchedulerPageFunctions:
         headless = self.page.headless_var.get()
         
         # Create schedule in database
+        
+
+        
+        # Create schedule in database
         try:
             from model.database import create_scheduled_job
             
@@ -153,18 +157,72 @@ class SchedulerPageFunctions:
                 project_id=self.project_id
             )
             
-            # For now, skip system task scheduler registration (will be in Task 3)
-            # Just show success and refresh the list
-            messagebox.showinfo("Success", f"Schedule created successfully! Job ID: {job_id}")
-            
-            # Reload jobs list
-            self.load_scheduled_jobs()
-            
-            # Clear form
-            self.clear_form()
-            
+            # Register with system task scheduler
+            try:
+                from scheduler_manager import SchedulerManager
+                scheduler = SchedulerManager()
+                
+                if recurring_day:
+                    success = scheduler.create_recurring_task(
+                        job_id=job_id,
+                        module_id=module_id,
+                        module_name=module_name,
+                        day=recurring_day,
+                        time=scheduled_time,
+                        browser=browser,
+                        headless=headless
+                    )
+                else:
+                    success = scheduler.create_one_time_task(
+                        job_id=job_id,
+                        module_id=module_id,
+                        module_name=module_name,
+                        date=scheduled_date,
+                        time=scheduled_time,
+                        browser=browser,
+                        headless=headless
+                    )
+                
+                if success:
+                    schedule_type = f"{recurring_day} at {scheduled_time}" if recurring_day else f"{scheduled_date} at {scheduled_time}"
+                    messagebox.showinfo(
+                        "Success", 
+                        f"Schedule created successfully!\n\n"
+                        f"Job ID: {job_id}\n"
+                        f"Module: {module_name}\n"
+                        f"Schedule: {schedule_type}\n"
+                        f"Browser: {browser}\n"
+                        f"Headless: {'Yes' if headless else 'No'}\n\n"
+                        f"✅ Windows Task Scheduler entry created!"
+                    )
+                    self.load_scheduled_jobs()
+                    self.clear_form()
+                else:
+                    # Rollback database entry if task creation failed
+                    from model.database import delete_scheduled_job_permanent
+                    delete_scheduled_job_permanent(job_id)
+                    messagebox.showerror(
+                        "Error", 
+                        "Failed to create Windows scheduled task!\n\n"
+                        "The job has been removed from the database.\n\n"
+                        "Possible reasons:\n"
+                        "- Insufficient Administrator privileges\n"
+                        "- Invalid date/time format\n"
+                        "- System Task Scheduler service not running"
+                    )
+                    
+            except Exception as scheduler_error:
+                # Rollback database entry if scheduler failed
+                try:
+                    from model.database import delete_scheduled_job_permanent
+                    delete_scheduled_job_permanent(job_id)
+                except:
+                    pass
+                messagebox.showerror("Error", f"Scheduler error: {scheduler_error}\n\nThe job has been removed from the database.")
+                
         except Exception as e:
             messagebox.showerror("Error", f"Failed to create schedule: {e}")
+
 
 
     def delete_selected_job(self):
@@ -188,19 +246,25 @@ class SchedulerPageFunctions:
             return
         
         try:
+            # Remove from system task scheduler first
+            try:
+                from scheduler_manager import SchedulerManager
+                scheduler = SchedulerManager()
+                scheduler.delete_task(job_id)
+                print(f"✓ Deleted Windows Task Scheduler entry for Job ID {job_id}")
+            except Exception as e:
+                print(f"Warning: Failed to delete system task: {e}")
+            
             # Delete from database
             from model.database import delete_scheduled_job
             delete_scheduled_job(job_id)
             
-            # Remove from system task scheduler
-            from scheduler_manager import SchedulerManager
-            scheduler = SchedulerManager()
-            scheduler.delete_task(job_id)
-            
-            messagebox.showinfo("Success", "Scheduled job deleted successfully!")
+            messagebox.showinfo("Success", f"Scheduled job deleted successfully!\n\nJob ID: {job_id}\nModule: {module_name}")
             self.load_scheduled_jobs()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to delete job: {e}")
+
+        
     
     def validate_date(self, date_str: str) -> bool:
         """Validate date format (YYYY-MM-DD)"""

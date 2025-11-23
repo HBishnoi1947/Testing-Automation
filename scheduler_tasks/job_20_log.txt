@@ -1,0 +1,29 @@
+================================================================================ 
+SCHEDULED TASK EXECUTION - Job 20 
+Module: new1 
+Start Time: 23-11-2025 21:42:47.16 
+================================================================================ 
+ 
+Working Directory: C:\Users\Devesh\practise files\testingapp\Testing-Automation 
+ 
+Executing Python Script... 
+Traceback (most recent call last):
+  File "C:\Users\Devesh\practise files\testingapp\Testing-Automation\execute.py", line 769, in run_scheduled_module
+    from model.database import get_testing_module_flow, get_feature_events
+ImportError: cannot import name 'get_feature_events' from 'model.database' (C:\Users\Devesh\practise files\testingapp\Testing-Automation\model\database.py)
+================================================================================
+SCHEDULED TESTING MODULE EXECUTION
+Time: 2025-11-23 21:42:47
+Module ID: 4
+Module Name: new1
+Browser: Chrome (chromium)
+Headless Mode: False
+================================================================================
+
+ERROR: Execution failed!
+Error: cannot import name 'get_feature_events' from 'model.database' (C:\Users\Devesh\practise files\testingapp\Testing-Automation\model\database.py)
+ 
+================================================================================ 
+End Time: 23-11-2025 21:42:47.96 
+Exit Code: 1 
+================================================================================ 

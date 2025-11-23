@@ -1,0 +1,123 @@
+================================================================================ 
+SCHEDULED TASK EXECUTION - Job 26 
+Module: new1 
+Start Time: 23-11-2025 22:32:00.86 
+================================================================================ 
+ 
+Working Directory: C:\Users\Devesh\practise files\testingapp\Testing-Automation 
+ 
+Executing Python Script... 
+================================================================================
+SCHEDULED TESTING MODULE EXECUTION
+Time: 2025-11-23 22:32:01
+Module ID: 4
+Module Name: new1
+Browser: Chrome (chromium)
+Headless Mode: False
+================================================================================
+
+Module Flow: 2 steps
+Feature IDs in module: [18, 19]
+Found 7 events for this module
+  [OK] Feature: Login (3 events)
+  [OK] Feature: login (4 events)
+
+================================================================================
+STARTING EXECUTION
+================================================================================
+
+Loaded 4 operation types for optimization
+[NEW] EventExecutor new instance created (not singleton)
+
+[WEB] Opening separate browser session for module execution...
+
+================================================================================
+[*] FEATURE 1/2: Login
+================================================================================
+[WEB] Starting from initial URL
+
+--- Executing Event 1/3 ---
+Operation: input_text
+Navigating to: https://practicetestautomation.com/practice-test-login/
+Operation: input_text
+Inputting text 'harsh@gmail.com' into: input[name='username']
+[OK] Successfully input text using css_selector: input[name='username']
+[OK] Event 1 passed
+
+--- Executing Event 2/3 ---
+Operation: input_text
+Already on https://practicetestautomation.com/practice-test-login/, skipping navigation
+Operation: input_text
+Inputting text '1234' into: input[name='password']
+[OK] Successfully input text using css_selector: input[name='password']
+[OK] Event 2 passed
+
+--- Executing Event 3/3 ---
+Operation: click
+Already on https://practicetestautomation.com/practice-test-login/, skipping navigation
+Operation: click
+Clicking element: button[class='btn']
+[OK] Successfully clicked element using css_selector: button[class='btn']
+[OK] Event 3 passed
+
+[OK] Feature 'Login' PASSED (3/3 events)
+
+================================================================================
+[*] FEATURE 2/2: login
+================================================================================
+[*] Continuing from current page: https://practicetestautomation.com/practice-test-login/
+
+--- Executing Event 1/4 ---
+Operation: input_text
+Already on https://practicetestautomation.com/practice-test-login/, skipping navigation
+Operation: input_text
+Inputting text 'student' into: #username
+[OK] Successfully input text using id_selector: #username
+[OK] Event 1 passed
+
+--- Executing Event 2/4 ---
+Operation: input_text
+Already on https://practicetestautomation.com/practice-test-login/, skipping navigation
+Operation: input_text
+Inputting text 'Password123' into: #password
+[OK] Successfully input text using id_selector: #password
+[OK] Event 2 passed
+
+--- Executing Event 3/4 ---
+Operation: click
+Already on https://practicetestautomation.com/practice-test-login/, skipping navigation
+Operation: click
+Clicking element: #submit
+[OK] Successfully clicked element using id_selector: #submit
+[OK] Event 3 passed
+
+--- Executing Event 4/4 ---
+Operation: verify_element
+Operation: verify_element
+Verifying element: a:has-text('Log out')
+Description: Verification element
+[OK] Verification PASSED - Element found and visible using css_selector!
+[OK] Event 4 passed
+
+[OK] Feature 'login' PASSED (4/4 events)
+
+
+[OK] All 2 features executed in single browser session!
+Browser will close in 3 seconds...
+[WEB] Browser session closed.
+
+================================================================================
+EXECUTION RESULTS
+================================================================================
+Total Features: 2
+Passed Features: 2
+Failed Features: 0
+Success: YES
+================================================================================
+
+[WARNING] Warning: Failed to save execution report: save_module_execution_report() got an unexpected keyword argument 'total_features'
+ 
+================================================================================ 
+End Time: 23-11-2025 22:32:18.48 
+Exit Code: 0 
+================================================================================ 
