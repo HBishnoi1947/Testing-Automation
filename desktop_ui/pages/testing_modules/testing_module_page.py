@@ -138,35 +138,51 @@ class TestingModulePage:
         self.modules_count_label.pack(pady=(10, 0))
         
         # Module action buttons
+        # Module action buttons section (around line 166)
         module_buttons_frame = tk.Frame(modules_content, bg=self.colors['surface'])
         module_buttons_frame.pack(fill=tk.X, pady=(10, 0))
-        
+
         self.new_module_button = tk.Button(module_buttons_frame,
-                                         text="🆕 New Module",
-                                         font=('Segoe UI', 9, 'bold'),
-                                         bg=self.colors['success'],
-                                         fg='white',
-                                         relief=tk.FLAT,
-                                         bd=0,
-                                         padx=10,
-                                         pady=5,
-                                         cursor='hand2',
-                                         command=self.create_new_module)
+            text="🆕 New Module",
+            font=('Segoe UI', 9, 'bold'),
+            bg=self.colors['success'],
+            fg='white',
+            relief=tk.FLAT,
+            bd=0,
+            padx=10,
+            pady=5,
+            cursor='hand2',
+            command=self.create_new_module)
         self.new_module_button.pack(side=tk.LEFT, padx=(0, 5))
-        
+
         self.delete_module_button = tk.Button(module_buttons_frame,
-                                            text="🗑️ Delete",
-                                            font=('Segoe UI', 9, 'bold'),
-                                            bg=self.colors['accent'],
-                                            fg='white',
-                                            relief=tk.FLAT,
-                                            bd=0,
-                                            padx=10,
-                                            pady=5,
-                                            cursor='hand2',
-                                            command=self.delete_module,
-                                            state=tk.DISABLED)
-        self.delete_module_button.pack(side=tk.LEFT)
+            text="🗑️ Delete",
+            font=('Segoe UI', 9, 'bold'),
+            bg=self.colors['accent'],
+            fg='white',
+            relief=tk.FLAT,
+            bd=0,
+            padx=10,
+            pady=5,
+            cursor='hand2',
+            command=self.delete_module,
+            state=tk.DISABLED)
+        self.delete_module_button.pack(side=tk.LEFT, padx=(0, 5))
+
+        # NEW: Scheduler button
+        self.scheduler_button = tk.Button(module_buttons_frame,
+            text="⏰ Scheduler",
+            font=('Segoe UI', 9, 'bold'),
+            bg='#FF6B35',  # Orange color for scheduler
+            fg='white',
+            relief=tk.FLAT,
+            bd=0,
+            padx=10,
+            pady=5,
+            cursor='hand2',
+            command=self.open_scheduler)
+        self.scheduler_button.pack(side=tk.LEFT)
+
     
     def create_available_panel(self, parent):
         """Create the available items panel."""
@@ -708,3 +724,29 @@ class TestingModulePage:
     def get_module_flow(self) -> List[Dict[str, Any]]:
         """Get the current module's flow."""
         return self.module_flow
+    
+    def open_scheduler(self):
+        """Open the scheduler window."""
+        from desktop_ui.pages.scheduler.scheduler_page import SchedulerPage
+        
+        # Create a new top-level window
+        scheduler_window = tk.Toplevel(self.parent_frame)
+        scheduler_window.title("Testing Module Scheduler")
+        scheduler_window.geometry("1200x700")
+        scheduler_window.configure(bg=self.colors['background'])
+        
+        # Make window modal
+        scheduler_window.transient(self.parent_frame)
+        scheduler_window.grab_set()
+        
+        # Create scheduler page
+        SchedulerPage(scheduler_window, self.colors, self.project_id)
+        
+        # Center the window
+        scheduler_window.update_idletasks()
+        width = scheduler_window.winfo_width()
+        height = scheduler_window.winfo_height()
+        x = (scheduler_window.winfo_screenwidth() // 2) - (width // 2)
+        y = (scheduler_window.winfo_screenheight() // 2) - (height // 2)
+        scheduler_window.geometry(f'{width}x{height}+{x}+{y}')
+

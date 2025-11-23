@@ -99,6 +99,7 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     """
     
     # Create module_execution_reports table
+
     create_module_execution_reports_table = """
     CREATE TABLE IF NOT EXISTS module_execution_reports (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,7 +112,26 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
         FOREIGN KEY (module_id) REFERENCES testing_modules(id)
     )
     """
-    
+
+    # NEW: Create scheduler_jobs table
+    create_scheduler_jobs_table = """
+    CREATE TABLE IF NOT EXISTS scheduler_jobs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        module_id INTEGER NOT NULL,
+        module_name TEXT NOT NULL,
+        scheduled_date TEXT,
+        scheduled_time TEXT NOT NULL,
+        recurring_day TEXT,
+        browser TEXT NOT NULL DEFAULT 'Chrome',
+        headless INTEGER NOT NULL DEFAULT 0,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        project_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (module_id) REFERENCES testing_modules(id) ON DELETE CASCADE,
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    )
+    """
+
     # Execute table creation
     conn.execute(create_projects_table)
     conn.execute(create_features_table)
@@ -120,6 +140,8 @@ def connect_to_sqlite_database(db_path: str = "database.db") -> sqlite3.Connecti
     conn.execute(create_testing_module_table)
     conn.execute(create_map_testing_module_table)
     conn.execute(create_module_execution_reports_table)
+    conn.execute(create_scheduler_jobs_table)  
+
     
     # Insert predefined operation types if they don't exist
     insert_operation_types = """
@@ -1784,5 +1806,352 @@ def delete_verification_event(feature_id: int, db_path: str = "database.db") -> 
     except Exception as e:
         print(f"[DB] Error deleting verification event: {e}")
         return False
+    finally:
+        conn.close()
+
+# ==================== SCHEDULER OPERATIONS ====================
+
+def create_scheduled_job(
+    module_id: int,
+    module_name: str,
+    scheduled_time: str,
+    browser: str = "Chrome",
+    headless: bool = False,
+    scheduled_date: Optional[str] = None,
+    recurring_day: Optional[str] = None,
+    project_id: Optional[int] = None,
+    db_path: str = "database.db"
+) -> int:
+    """
+    Create a new scheduled job.
+    
+    Args:
+        module_id: ID of the testing module
+        module_name: Name of the testing module
+        scheduled_time: Time to run (HH:MM format)
+        browser: Browser to use (Chrome, Edge, Firefox)
+        headless: Whether to run in headless mode
+        scheduled_date: Date for one-time schedule (YYYY-MM-DD)
+        recurring_day: Day for recurring schedule (Monday, Tuesday, etc.)
+        project_id: Optional project ID filter
+        db_path: Path to SQLite database file
+    
+    Returns:
+        int: ID of the created scheduled job
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        # Validate module exists
+        check_module_sql = "SELECT 1 FROM testing_modules WHERE id = ?"
+        cursor = conn.execute(check_module_sql, (module_id,))
+        if not cursor.fetchone():
+            raise ValueError(f"Testing module with ID {module_id} does not exist")
+        
+        # Validate schedule type
+        if scheduled_date and recurring_day:
+            raise ValueError("Cannot set both one-time date and recurring day")
+        if not scheduled_date and not recurring_day:
+            raise ValueError("Must set either one-time date or recurring day")
+        
+        # Insert scheduled job
+        insert_sql = """
+        INSERT INTO scheduler_jobs 
+        (module_id, module_name, scheduled_date, scheduled_time, recurring_day, 
+         browser, headless, project_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        cursor = conn.execute(insert_sql, (
+            module_id,
+            module_name,
+            scheduled_date,
+            scheduled_time,
+            recurring_day,
+            browser,
+            1 if headless else 0,
+            project_id
+        ))
+        job_id = cursor.lastrowid
+        conn.commit()
+        
+        schedule_type = f"recurring ({recurring_day})" if recurring_day else f"one-time ({scheduled_date})"
+        print(f"Created scheduled job ID {job_id} for module '{module_name}' - {schedule_type} at {scheduled_time}")
+        return job_id
+    
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to create scheduled job: {e}")
+    finally:
+        conn.close()
+
+
+def get_all_scheduled_jobs(project_id: Optional[int] = None, db_path: str = "database.db") -> List[dict]:
+    """
+    Get all scheduled jobs from the database.
+    
+    Args:
+        project_id: Optional project ID to filter by
+        db_path: Path to SQLite database file
+    
+    Returns:
+        List[dict]: List of scheduled job dictionaries
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        if project_id:
+            select_sql = """
+            SELECT id, module_id, module_name, scheduled_date, scheduled_time, 
+                   recurring_day, browser, headless, is_active, project_id, created_at
+            FROM scheduler_jobs
+            WHERE project_id = ? AND is_active = 1
+            ORDER BY created_at DESC
+            """
+            cursor = conn.execute(select_sql, (project_id,))
+        else:
+            select_sql = """
+            SELECT id, module_id, module_name, scheduled_date, scheduled_time, 
+                   recurring_day, browser, headless, is_active, project_id, created_at
+            FROM scheduler_jobs
+            WHERE is_active = 1
+            ORDER BY created_at DESC
+            """
+            cursor = conn.execute(select_sql)
+        
+        rows = cursor.fetchall()
+        jobs = []
+        for row in rows:
+            jobs.append({
+                'id': row['id'],
+                'module_id': row['module_id'],
+                'module_name': row['module_name'],
+                'scheduled_date': row['scheduled_date'],
+                'scheduled_time': row['scheduled_time'],
+                'recurring_day': row['recurring_day'],
+                'browser': row['browser'],
+                'headless': bool(row['headless']),
+                'is_active': bool(row['is_active']),
+                'project_id': row['project_id'],
+                'created_at': row['created_at']
+            })
+        return jobs
+    
+    except Exception as e:
+        raise RuntimeError(f"Failed to get scheduled jobs: {e}")
+    finally:
+        conn.close()
+
+
+def get_scheduled_job_by_id(job_id: int, db_path: str = "database.db") -> Optional[dict]:
+    """
+    Get a specific scheduled job by ID.
+    
+    Args:
+        job_id: ID of the scheduled job
+        db_path: Path to SQLite database file
+    
+    Returns:
+        Optional[dict]: Scheduled job dictionary if found, None otherwise
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        select_sql = """
+        SELECT id, module_id, module_name, scheduled_date, scheduled_time, 
+               recurring_day, browser, headless, is_active, project_id, created_at
+        FROM scheduler_jobs
+        WHERE id = ?
+        """
+        cursor = conn.execute(select_sql, (job_id,))
+        row = cursor.fetchone()
+        
+        if not row:
+            return None
+        
+        return {
+            'id': row['id'],
+            'module_id': row['module_id'],
+            'module_name': row['module_name'],
+            'scheduled_date': row['scheduled_date'],
+            'scheduled_time': row['scheduled_time'],
+            'recurring_day': row['recurring_day'],
+            'browser': row['browser'],
+            'headless': bool(row['headless']),
+            'is_active': bool(row['is_active']),
+            'project_id': row['project_id'],
+            'created_at': row['created_at']
+        }
+    
+    except Exception as e:
+        raise RuntimeError(f"Failed to get scheduled job: {e}")
+    finally:
+        conn.close()
+
+
+def update_scheduled_job(
+    job_id: int,
+    scheduled_date: Optional[str] = None,
+    scheduled_time: Optional[str] = None,
+    recurring_day: Optional[str] = None,
+    browser: Optional[str] = None,
+    headless: Optional[bool] = None,
+    is_active: Optional[bool] = None,
+    db_path: str = "database.db"
+) -> None:
+    """
+    Update a scheduled job.
+    
+    Args:
+        job_id: ID of the job to update
+        scheduled_date: New scheduled date (optional)
+        scheduled_time: New scheduled time (optional)
+        recurring_day: New recurring day (optional)
+        browser: New browser (optional)
+        headless: New headless mode (optional)
+        is_active: New active status (optional)
+        db_path: Path to SQLite database file
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        # Build update query dynamically
+        update_parts = []
+        params = []
+        
+        if scheduled_date is not None:
+            update_parts.append("scheduled_date = ?")
+            params.append(scheduled_date)
+        
+        if scheduled_time is not None:
+            update_parts.append("scheduled_time = ?")
+            params.append(scheduled_time)
+        
+        if recurring_day is not None:
+            update_parts.append("recurring_day = ?")
+            params.append(recurring_day)
+        
+        if browser is not None:
+            update_parts.append("browser = ?")
+            params.append(browser)
+        
+        if headless is not None:
+            update_parts.append("headless = ?")
+            params.append(1 if headless else 0)
+        
+        if is_active is not None:
+            update_parts.append("is_active = ?")
+            params.append(1 if is_active else 0)
+        
+        if not update_parts:
+            return  # Nothing to update
+        
+        params.append(job_id)
+        update_sql = f"UPDATE scheduler_jobs SET {', '.join(update_parts)} WHERE id = ?"
+        
+        cursor = conn.execute(update_sql, params)
+        if cursor.rowcount == 0:
+            raise ValueError(f"Scheduled job with ID {job_id} not found")
+        
+        conn.commit()
+        print(f"Updated scheduled job with ID {job_id}")
+    
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to update scheduled job: {e}")
+    finally:
+        conn.close()
+
+
+def delete_scheduled_job(job_id: int, db_path: str = "database.db") -> None:
+    """
+    Delete a scheduled job (soft delete by setting is_active to 0).
+    
+    Args:
+        job_id: ID of the scheduled job to delete
+        db_path: Path to SQLite database file
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        # Soft delete - set is_active to 0
+        update_sql = "UPDATE scheduler_jobs SET is_active = 0 WHERE id = ?"
+        cursor = conn.execute(update_sql, (job_id,))
+        
+        if cursor.rowcount == 0:
+            raise ValueError(f"Scheduled job with ID {job_id} not found")
+        
+        conn.commit()
+        print(f"Deleted scheduled job with ID {job_id}")
+    
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to delete scheduled job: {e}")
+    finally:
+        conn.close()
+
+
+def delete_scheduled_job_permanent(job_id: int, db_path: str = "database.db") -> None:
+    """
+    Permanently delete a scheduled job from database.
+    
+    Args:
+        job_id: ID of the scheduled job to delete
+        db_path: Path to SQLite database file
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        delete_sql = "DELETE FROM scheduler_jobs WHERE id = ?"
+        cursor = conn.execute(delete_sql, (job_id,))
+        
+        if cursor.rowcount == 0:
+            raise ValueError(f"Scheduled job with ID {job_id} not found")
+        
+        conn.commit()
+        print(f"Permanently deleted scheduled job with ID {job_id}")
+    
+    except Exception as e:
+        conn.rollback()
+        raise RuntimeError(f"Failed to permanently delete scheduled job: {e}")
+    finally:
+        conn.close()
+
+
+def get_scheduled_jobs_by_module(module_id: int, db_path: str = "database.db") -> List[dict]:
+    """
+    Get all scheduled jobs for a specific module.
+    
+    Args:
+        module_id: ID of the testing module
+        db_path: Path to SQLite database file
+    
+    Returns:
+        List[dict]: List of scheduled job dictionaries
+    """
+    conn = connect_to_sqlite_database(db_path)
+    try:
+        select_sql = """
+        SELECT id, module_id, module_name, scheduled_date, scheduled_time, 
+               recurring_day, browser, headless, is_active, project_id, created_at
+        FROM scheduler_jobs
+        WHERE module_id = ? AND is_active = 1
+        ORDER BY created_at DESC
+        """
+        cursor = conn.execute(select_sql, (module_id,))
+        rows = cursor.fetchall()
+        
+        jobs = []
+        for row in rows:
+            jobs.append({
+                'id': row['id'],
+                'module_id': row['module_id'],
+                'module_name': row['module_name'],
+                'scheduled_date': row['scheduled_date'],
+                'scheduled_time': row['scheduled_time'],
+                'recurring_day': row['recurring_day'],
+                'browser': row['browser'],
+                'headless': bool(row['headless']),
+                'is_active': bool(row['is_active']),
+                'project_id': row['project_id'],
+                'created_at': row['created_at']
+            })
+        return jobs
+    
+    except Exception as e:
+        raise RuntimeError(f"Failed to get scheduled jobs for module: {e}")
     finally:
         conn.close()
